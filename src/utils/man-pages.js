@@ -115,38 +115,337 @@ cp /home/config.json /tmp/config.json
 mv(1), rm(1), cat(1)
 `,
 
-  'grep.1.md': `# NAME
+  'find.1.md': `# NAME
 
-grep - search file contents
+find - search for files in directory hierarchy
 
 ## SYNOPSIS
 
-\`grep <pattern> <file>\`
+\`\`\`bash
+find [path]
+find [path] -name <pattern>
+find [path] -type <f|d>
+find [path] -name <pattern> -type <f|d>
+\`\`\`
 
 ## DESCRIPTION
 
-Search for lines in a file matching a pattern (regular expression). Displays all matching lines.
+The \`find\` command recursively searches directories for files matching specified criteria. It can filter by filename pattern and file type.
+
+If no path is specified, \`find\` searches the current directory and all subdirectories.
+
+## OPTIONS
+
+### -name, -n PATTERN
+
+Match files by name pattern. Supports wildcards:
+- \`*\` - Matches any sequence of characters
+- \`?\` - Matches any single character
+
+Patterns are case-sensitive and match against the filename only, not the full path.
+
+### -type, -t TYPE
+
+Filter by file type:
+- \`f\` - Regular files only
+- \`d\` - Directories only
 
 ## EXAMPLES
 
-Search for a word:
-\`\`\`
-grep error log.txt
-\`\`\`
-
-Search for a pattern:
-\`\`\`
-grep "^import" script.js
+List all files under \`/home\`:
+\`\`\`bash
+find /home
 \`\`\`
 
-Search in home directory:
+Find all text files in current directory:
+\`\`\`bash
+find -name "*.txt"
 \`\`\`
-grep TODO /home/notes.txt
+
+Find all JavaScript files:
+\`\`\`bash
+find -name "*.js" -type f
 \`\`\`
+
+Find all directories:
+\`\`\`bash
+find -type d
+\`\`\`
+
+Find config files:
+\`\`\`bash
+find /home -name "*config*"
+\`\`\`
+
+## USAGE WITH PIPES
+
+\`find\` works well with pipes for further filtering:
+
+\`\`\`bash
+# Find and count JavaScript files
+find -name "*.js" | wc -l
+
+# Find and display sorted
+find /home -name "*.txt" | sort
+
+# Find and grep through results
+find -name "*.js" | grep test
+\`\`\`
+
+## NOTES
+
+- Searches recursively through all subdirectories
+- Silently skips directories that cannot be read
+- Results are output as full paths
+- Patterns match filename only, not the full path
+- Case-sensitive pattern matching
 
 ## SEE ALSO
 
-cat(1), head(1), tail(1), wc(1)
+ls(1), grep(1), stat(1)
+`,
+
+  'grep.1.md': `# NAME
+
+grep - search for patterns in files or input
+
+## SYNOPSIS
+
+\`\`\`bash
+grep [options] <pattern> [file]
+grep -n <pattern> <file>
+grep -i <pattern> <file>
+grep -v <pattern> <file>
+grep -c <pattern> <file>
+command | grep <pattern>
+\`\`\`
+
+## DESCRIPTION
+
+The \`grep\` command searches for lines matching a pattern (regular expression) in files or standard input. It outputs matching lines to standard output.
+
+When reading from a file, grep searches the specified file. When used in a pipeline, grep reads from standard input.
+
+By default, grep performs case-sensitive matching and outputs only the matching lines without modification.
+
+## OPTIONS
+
+### -n, --number
+
+Prefix each output line with its line number in the input.
+
+**Example:**
+\`\`\`bash
+grep -n error log.txt
+\`\`\`
+
+Output:
+\`\`\`
+5:error: file not found
+12:error: connection timeout
+\`\`\`
+
+### -i, --ignore-case
+
+Perform case-insensitive pattern matching. By default, grep is case-sensitive.
+
+**Example:**
+\`\`\`bash
+grep -i error log.txt
+\`\`\`
+
+Matches "error", "Error", "ERROR", "ErRoR", etc.
+
+### -v, --invert
+
+Invert the match - output lines that do NOT match the pattern.
+
+**Example:**
+\`\`\`bash
+grep -v comment config.txt
+\`\`\`
+
+Shows all lines that don't contain "comment".
+
+### -c, --count
+
+Suppress normal output and only print the count of matching lines.
+
+**Example:**
+\`\`\`bash
+grep -c error log.txt
+\`\`\`
+
+Output:
+\`\`\`
+42
+\`\`\`
+
+## PATTERN SYNTAX
+
+Grep uses JavaScript regular expressions. Common patterns:
+
+- \`.\` - Match any single character
+- \`*\` - Match zero or more of the preceding character
+- \`+\` - Match one or more of the preceding character
+- \`^\` - Match start of line
+- \`$\` - Match end of line
+- \`[abc]\` - Match any character in brackets
+- \`[^abc]\` - Match any character NOT in brackets
+- \`\\d\` - Match any digit
+- \`\\w\` - Match any word character
+- \`\\s\` - Match any whitespace
+
+**Examples:**
+\`\`\`bash
+grep "^import"           # Lines starting with "import"
+grep "error$"            # Lines ending with "error"
+grep "test.*file"        # "test" followed by "file"
+grep "[0-9]+"            # Lines containing numbers
+\`\`\`
+
+## EXAMPLES
+
+### Basic search
+
+Search for "error" in log file:
+\`\`\`bash
+grep error log.txt
+\`\`\`
+
+### With line numbers
+
+Show line numbers for matches:
+\`\`\`bash
+grep -n TODO script.js
+\`\`\`
+
+### Case-insensitive search
+
+Find "error" regardless of case:
+\`\`\`bash
+grep -i error log.txt
+\`\`\`
+
+### Count matches
+
+Count how many lines contain "error":
+\`\`\`bash
+grep -c error log.txt
+\`\`\`
+
+### Invert match
+
+Show lines that don't contain comments:
+\`\`\`bash
+grep -v "^#" config.sh
+\`\`\`
+
+### Pipeline usage
+
+Search through piped input:
+\`\`\`bash
+cat log.txt | grep error
+ls | grep ".txt"
+find /home -name "*.js" | grep test
+\`\`\`
+
+### Combined flags
+
+Show line numbers with case-insensitive search:
+\`\`\`bash
+grep -ni error log.txt
+\`\`\`
+
+Count non-matching lines:
+\`\`\`bash
+grep -vc "^#" config.sh
+\`\`\`
+
+### Regular expressions
+
+Find lines starting with "import":
+\`\`\`bash
+grep "^import" script.js
+\`\`\`
+
+Find lines with numbers:
+\`\`\`bash
+grep "[0-9]" data.txt
+\`\`\`
+
+Find email-like patterns:
+\`\`\`bash
+grep "\\w+@\\w+\\.\\w+" contacts.txt
+\`\`\`
+
+## OUTPUT FORMAT
+
+### Default output
+
+Just the matching lines:
+\`\`\`
+error in file.txt
+another error occurred
+\`\`\`
+
+### With -n (line numbers)
+
+Line numbers prefixed with colon:
+\`\`\`
+5:error in file.txt
+12:another error occurred
+\`\`\`
+
+### With -c (count)
+
+Just the number:
+\`\`\`
+2
+\`\`\`
+
+### Terminal output
+
+When outputting directly to terminal (not piped), matching text is highlighted in red for easier visibility.
+
+When piped to another command, no color formatting is applied.
+
+## USAGE WITH PIPES
+
+Grep is commonly used in pipelines:
+
+\`\`\`bash
+# Find and filter
+find /home -name "*.txt" | grep config
+
+# Multiple filters
+cat log.txt | grep error | grep -v warning
+
+# Count matches in pipeline
+ls | grep ".js" | grep -c test
+
+# Process output
+grep error log.txt | sort | uniq
+\`\`\`
+
+## EXIT STATUS
+
+Grep returns:
+- **0** - One or more lines matched
+- **Error** - If an error occurred (file not found, etc.)
+
+## NOTES
+
+- Patterns are JavaScript regular expressions
+- Case-sensitive by default (use \`-i\` for case-insensitive)
+- Empty pattern matches all lines
+- Reads from stdin when no file specified (useful in pipes)
+- Color highlighting only appears in terminal, not in pipes
+- Multiple flags can be combined: \`-ni\`, \`-cv\`, etc.
+
+## SEE ALSO
+
+cat(1), find(1), sort(1), uniq(1), head(1), tail(1), wc(1)
 `,
 
   'head.1.md': `# NAME
@@ -362,6 +661,94 @@ rm /tmp/cache
 mkdir(1), touch(1), cp(1), mv(1)
 `,
 
+  'sort.1.md': `# NAME
+
+sort - sort lines of text files
+
+## SYNOPSIS
+
+\`\`\`bash
+sort [file]
+sort -r [file]
+sort -n [file]
+command | sort
+\`\`\`
+
+## DESCRIPTION
+
+The \`sort\` command sorts lines of text alphabetically or numerically. It can read from a file or from standard input (piped data).
+
+By default, \`sort\` performs case-sensitive lexicographic sorting.
+
+## OPTIONS
+
+### -r, --reverse
+
+Reverse the sort order (descending instead of ascending).
+
+### -n, --numeric
+
+Sort numerically instead of alphabetically. This treats lines as numbers and sorts them by numeric value.
+
+## EXAMPLES
+
+Sort lines in a file:
+\`\`\`bash
+sort names.txt
+\`\`\`
+
+Sort directory listing:
+\`\`\`bash
+ls | sort
+\`\`\`
+
+Reverse sort:
+\`\`\`bash
+sort -r file.txt
+\`\`\`
+
+Sort numbers correctly:
+\`\`\`bash
+sort -n numbers.txt
+\`\`\`
+
+Sort and save to file:
+\`\`\`bash
+sort names.txt > sorted.txt
+\`\`\`
+
+## USAGE WITH PIPES
+
+\`sort\` is commonly used in pipelines:
+
+\`\`\`bash
+# Sort and remove duplicates
+sort file.txt | uniq
+
+# Find unique extensions
+ls | sort | uniq
+
+# Sort and show first 10
+cat file.txt | sort | head
+
+# Reverse sort with grep
+grep error log.txt | sort -r
+\`\`\`
+
+## NOTES
+
+- Case-sensitive by default
+- Empty lines are sorted to the beginning
+- Without \`-n\`, numbers are sorted lexicographically: "10" < "2"
+- With \`-n\`, numbers are sorted numerically: 2 < 10
+- Reads from stdin if no file specified
+- Output can be piped or redirected
+
+## SEE ALSO
+
+uniq(1), grep(1), cat(1)
+`,
+
   'stat.1.md': `# NAME
 
 stat - display file status
@@ -440,6 +827,143 @@ tail -n 20 /home/output.log
 head(1), cat(1), grep(1), wc(1)
 `,
 
+  'tee.1.md': `# NAME
+
+tee - read from stdin and write to file and stdout
+
+## SYNOPSIS
+
+\`\`\`bash
+command | tee <file>
+command | tee -a <file>
+command | tee <file1> <file2> <file3>
+\`\`\`
+
+## DESCRIPTION
+
+The \`tee\` command reads from standard input and writes to both standard output and one or more files simultaneously. This allows you to save command output to a file while still viewing it in the terminal or passing it to the next command in a pipeline.
+
+Think of it like a "T-junction" in plumbing - the data flows in one direction and splits into two.
+
+## OPTIONS
+
+### -a, --append
+
+Append to the file(s) instead of overwriting them. If the file doesn't exist, it will be created.
+
+## EXAMPLES
+
+### Basic usage
+
+Save ls output to a file and view it:
+\`\`\`bash
+ls | tee output.txt
+\`\`\`
+
+### Pipeline with tee
+
+Save intermediate results in a pipeline:
+\`\`\`bash
+cat log.txt | grep error | tee errors.txt | wc -l
+\`\`\`
+
+This:
+1. Searches for "error" in log.txt
+2. Saves results to errors.txt
+3. Counts the lines
+4. Shows both the saved lines AND the count
+
+### Append mode
+
+Add to an existing log file:
+\`\`\`bash
+echo "New log entry" | tee -a log.txt
+\`\`\`
+
+### Multiple files
+
+Write to multiple files at once:
+\`\`\`bash
+ls | tee file1.txt file2.txt file3.txt
+\`\`\`
+
+All three files get the same content.
+
+### Complex pipeline
+
+Monitor and log a process:
+\`\`\`bash
+find /home -name "*.txt" | tee found-files.txt | wc -l
+\`\`\`
+
+This shows how many .txt files were found AND saves the list.
+
+### Building logs
+
+Append timestamped entries:
+\`\`\`bash
+echo "$(date): System check complete" | tee -a system.log
+\`\`\`
+
+## COMMON USE CASES
+
+### Save pipeline output for later inspection
+
+\`\`\`bash
+ps | grep running | tee snapshot.txt | sort
+\`\`\`
+
+You get sorted output in terminal, but also a saved snapshot.
+
+### Debugging pipelines
+
+Insert tee to see intermediate results:
+\`\`\`bash
+cat data.txt | grep pattern | tee debug.txt | sort | uniq
+\`\`\`
+
+Check debug.txt to see what grep found before sort/uniq modified it.
+
+### Logging command output
+
+\`\`\`bash
+ls -la | tee directory-listing.txt
+\`\`\`
+
+View the listing now, but also have it saved for records.
+
+### Split data to multiple destinations
+
+\`\`\`bash
+cat data.txt | tee backup1.txt backup2.txt > /dev/null
+\`\`\`
+
+(Note: We don't have /dev/null yet, so just use \`| cat > /dev/null\` to suppress terminal output)
+
+## HOW IT WORKS
+
+\`\`\`
+Input (stdin) → tee → Output (stdout)
+                  ↓
+               File(s)
+\`\`\`
+
+Data flows through tee and gets copied to both destinations.
+
+## NOTES
+
+- Requires input from a pipe (cannot read from terminal directly)
+- Can write to multiple files in one command
+- Without \`-a\`, overwrites existing files
+- With \`-a\`, appends to existing files (creates if missing)
+- Output to stdout continues to flow for further piping
+- Very useful for debugging complex pipelines
+
+## SEE ALSO
+
+cat(1), grep(1), sort(1), wc(1)
+`,
+
   'touch.1.md': `# NAME
 
 touch - create empty files
@@ -506,6 +1030,127 @@ tree /home
 ## SEE ALSO
 
 ls(1), pwd(1), cd(1)
+`,
+
+  'uniq.1.md': `# NAME
+
+uniq - report or omit repeated lines
+
+## SYNOPSIS
+
+\`\`\`bash
+uniq [file]
+uniq -c [file]
+command | uniq
+\`\`\`
+
+## DESCRIPTION
+
+The \`uniq\` command filters out repeated consecutive lines from input. It compares adjacent lines and removes duplicates, keeping only one copy of each repeated line.
+
+**Important:** \`uniq\` only removes **consecutive** duplicates. To remove all duplicates, sort the input first: \`sort file.txt | uniq\`.
+
+## OPTIONS
+
+### -c, --count
+
+Prefix each line with the number of times it occurred. Output format:
+\`\`\`
+      3 line1
+      1 line2
+      2 line3
+\`\`\`
+
+Count is right-aligned in a 7-character field.
+
+## EXAMPLES
+
+Remove consecutive duplicates:
+\`\`\`bash
+uniq file.txt
+\`\`\`
+
+Remove all duplicates (sort first):
+\`\`\`bash
+sort file.txt | uniq
+\`\`\`
+
+Count occurrences:
+\`\`\`bash
+uniq -c file.txt
+\`\`\`
+
+Find unique values in data:
+\`\`\`bash
+cat data.txt | sort | uniq
+\`\`\`
+
+Count unique lines and sort by frequency:
+\`\`\`bash
+sort file.txt | uniq -c | sort -nr
+\`\`\`
+
+## USAGE WITH PIPES
+
+\`uniq\` is most useful in pipelines, especially with \`sort\`:
+
+\`\`\`bash
+# Get unique lines from file
+sort names.txt | uniq
+
+# Count frequency of each line
+sort log.txt | uniq -c | sort -nr
+
+# Find duplicate lines
+sort file.txt | uniq -c | grep -v "^      1"
+
+# List unique directory contents
+ls /home | sort | uniq
+\`\`\`
+
+## BEHAVIOR
+
+Input:
+\`\`\`
+apple
+apple
+banana
+banana
+banana
+apple
+\`\`\`
+
+Output of \`uniq\`:
+\`\`\`
+apple
+banana
+apple
+\`\`\`
+
+Output of \`sort | uniq\`:
+\`\`\`
+apple
+banana
+\`\`\`
+
+Output of \`sort | uniq -c\`:
+\`\`\`
+      3 apple
+      3 banana
+\`\`\`
+
+## NOTES
+
+- Only removes **consecutive** duplicates
+- For all duplicates, use \`sort\` first: \`sort | uniq\`
+- Empty lines are treated as unique lines
+- Case-sensitive comparison
+- Reads from stdin if no file specified
+- Output can be piped or redirected
+
+## SEE ALSO
+
+sort(1), grep(1), wc(1)
 `,
 
   'vein.1.md': `# NAME
@@ -963,6 +1608,386 @@ kill 456
 ps(1), run(1), cron(1)
 `,
 
+  'koma.1.md': `# NAME
+
+koma - Koma system management
+
+## SYNOPSIS
+
+\`\`\`bash
+koma version
+koma update
+koma upgrade
+koma reset
+\`\`\`
+
+## DESCRIPTION
+
+The \`koma\` command manages the Koma system itself, including version information, system updates, and file restoration.
+
+System updates preserve all user data in \`/home/\` while updating system files in \`/usr/\` and \`/etc/\`. This includes man pages, system scripts, and configuration files.
+
+## SUBCOMMANDS
+
+### koma version
+
+Display detailed system information including:
+- Current Koma version
+- Build date
+- Number of installed man pages
+- Last update timestamp
+- Update availability status
+
+**Example:**
+\`\`\`bash
+koma version
+\`\`\`
+
+Output:
+\`\`\`
+Koma 0.5.0
+Build date: 2025-11-10
+Man pages: 37
+Last update: 2025-11-10T15:30:00.000Z
+Status: Up to date
+\`\`\`
+
+### koma update
+
+Check for available system updates without applying them. Shows what version is available and lists the changes that would be applied.
+
+This command is safe to run at any time and makes no modifications to the system.
+
+**Example:**
+\`\`\`bash
+koma update
+\`\`\`
+
+If updates are available:
+\`\`\`
+New version available: 0.6.0
+Current version: 0.5.0
+
+Changes:
+- Updated man pages (42 total)
+- System file improvements
+- New commands added
+
+Run 'koma upgrade' to install updates
+\`\`\`
+
+If no updates:
+\`\`\`
+System is up to date (version 0.5.0)
+\`\`\`
+
+### koma upgrade
+
+Apply available system updates. This command:
+- Updates all man pages in \`/usr/share/man/\`
+- Updates system files in \`/usr/\` and \`/etc/\`
+- Updates the version tracking file \`/etc/koma-version\`
+- **Preserves all user data in \`/home/\`**
+
+The upgrade process is safe and cannot damage user files. If something goes wrong, use \`koma reset\` to restore system files to their defaults.
+
+**Example:**
+\`\`\`bash
+koma upgrade
+\`\`\`
+
+Output:
+\`\`\`
+Upgraded from 0.4.0 to 0.5.0
+Updated 37 system files
+System restart not required
+\`\`\`
+
+**Notes:**
+- User data in \`/home/\` is never modified
+- The browser tab does not need to be refreshed
+- Changes take effect immediately
+- Command history and environment variables are preserved
+
+### koma reset
+
+Reset all system files to their default state. This is useful if:
+- System files have been corrupted or modified
+- Man pages are missing or broken
+- You want to restore default configurations
+
+This command:
+- Restores all files in \`/usr/share/man/\`
+- Resets system files in \`/usr/\` and \`/etc/\`
+- **Preserves all user data in \`/home/\`**
+
+**Example:**
+\`\`\`bash
+koma reset
+\`\`\`
+
+Output:
+\`\`\`
+System files reset to defaults
+Reset 37 files
+All system files restored
+\`\`\`
+
+**Warning:** While this command preserves \`/home/\`, any modifications you made to system files (like scripts in \`/usr/bin/\`) will be lost.
+
+## VERSION TRACKING
+
+Koma tracks system version information in \`/etc/koma-version\`, a JSON file containing:
+
+\`\`\`json
+{
+  "version": "0.5.0",
+  "buildDate": "2025-11-10",
+  "updatedAt": "2025-11-10T15:30:00.000Z",
+  "manPagesCount": 37
+}
+\`\`\`
+
+This file is automatically managed by \`koma upgrade\` and \`koma reset\`. Manual modification is not recommended.
+
+## UPDATE SAFETY
+
+The Koma update system follows these safety principles:
+
+1. **User data is sacred** - \`/home/\` is never modified during updates
+2. **Non-destructive** - Updates can be rolled back with \`koma reset\`
+3. **No downtime** - Updates apply immediately without page refresh
+4. **Atomic operations** - Updates either complete fully or not at all
+5. **Version tracking** - System always knows what version is installed
+
+## FILES
+
+- \`/etc/koma-version\` - System version information
+- \`/usr/share/man/\` - Man page documentation
+- \`/home/\` - User data (preserved during updates)
+
+## EXAMPLES
+
+Check if updates are available and apply them:
+\`\`\`bash
+koma update
+koma upgrade
+\`\`\`
+
+View current system information:
+\`\`\`bash
+koma version
+\`\`\`
+
+Restore system files after corruption:
+\`\`\`bash
+koma reset
+\`\`\`
+
+## NOTES
+
+- System updates are delivered through the kernel worker
+- Updates preserve the IndexedDB-backed virtual filesystem
+- Man pages are rebuilt during upgrade from embedded sources
+- The update system does not require network access
+- Version information is stored in the VFS, not browser storage
+
+## SEE ALSO
+
+help(1), man(1), restart(1)
+
+## HISTORY
+
+The \`koma\` command was introduced in Koma 0.5.0 (Phase 5.5: System Updates) to provide self-update capabilities for the system.
+`,
+
+  'komarc.5.md': `# komarc(5) - Shell initialization file
+
+## NAME
+
+komarc - Koma shell initialization file
+
+## SYNOPSIS
+
+\`/home/.komarc\`
+
+## DESCRIPTION
+
+The \`.komarc\` file is the Koma shell initialization file. It is executed automatically when a new shell session (tab) is created, before the welcome message is displayed.
+
+The file is a simple shell script containing commands that are executed sequentially, just like a script run with \`sh(1)\`.
+
+## FILE FORMAT
+
+The \`.komarc\` file follows standard shell script format:
+
+- **One command per line** - Each line is executed as if typed at the shell prompt
+- **Comments** - Lines starting with \`#\` are ignored
+- **Blank lines** - Empty lines are skipped
+- **All commands supported** - Any built-in command, pipeline, or redirect works
+
+## EXECUTION
+
+\`.komarc\` is executed:
+
+- When creating a **new tab** (not when restoring tabs from localStorage)
+- **Before** the welcome message is displayed
+- **Silently** - Output is not shown unless commands explicitly write to terminal
+- **Non-fatal** - Errors in individual commands are logged but don't stop execution
+- **Asynchronously** - Each command completes before the next runs
+
+If \`.komarc\` doesn't exist, it is silently ignored (no error).
+
+## TYPICAL USE CASES
+
+### Environment Setup
+
+Set environment variables (when variable support is added in Phase 6):
+
+\`\`\`bash
+# Set custom environment
+export EDITOR=vein
+export PAGER=less
+\`\`\`
+
+### Directory Structure
+
+Create standard working directories:
+
+\`\`\`bash
+# Create project directories
+mkdir -p /home/projects
+mkdir -p /home/scripts
+mkdir -p /home/data
+\`\`\`
+
+### Startup Messages
+
+Display custom welcome messages:
+
+\`\`\`bash
+# Show system info
+echo "Welcome to Koma Workstation"
+echo ""
+\`\`\`
+
+### Background Processes
+
+Start long-running processes (when background jobs are supported):
+
+\`\`\`bash
+# Start monitoring scripts
+# run /home/scripts/monitor.js &
+\`\`\`
+
+### Aliases and Functions
+
+(Future: when aliases/functions are added in Phase 7)
+
+\`\`\`bash
+# Define shortcuts
+alias ll='ls -la'
+alias ..='cd ..'
+\`\`\`
+
+## EXAMPLE
+
+Here's a complete example \`.komarc\`:
+
+\`\`\`bash
+# Koma Shell Configuration
+# ~/.komarc
+
+# Welcome message
+echo "Koma Workstation - Olivine Kernel"
+echo ""
+
+# Create standard directories
+mkdir -p /home/projects
+mkdir -p /home/scripts
+mkdir -p /home/tmp
+
+# Set up project structure
+cd /home/projects
+
+# Download useful scripts (example)
+# wget https://example.com/utils.js -O /home/scripts/utils.js
+
+# Display current status
+echo "Workspace initialized"
+\`\`\`
+
+## DEBUGGING
+
+To see what commands are executed from \`.komarc\`, temporarily add \`echo\` statements:
+
+\`\`\`bash
+echo "Loading .komarc..."
+
+mkdir -p /home/projects
+echo "Created /home/projects"
+
+cd /home/projects
+echo "Changed to projects directory"
+\`\`\`
+
+Or check the browser console (F12) for any error messages.
+
+## FILES
+
+- \`/home/.komarc\` - User initialization file (the only location checked)
+
+## NOTES
+
+- \`.komarc\` is **not** executed when tabs are restored from localStorage (on page reload)
+- This prevents duplicate execution and maintains tab state
+- Commands that fail continue to next line (like \`sh -c\` but more forgiving)
+- Output from \`.komarc\` commands is not shown by default
+
+## CREATING .KOMARC
+
+Use the built-in editor:
+
+\`\`\`bash
+vein /home/.komarc
+\`\`\`
+
+Or write from command line:
+
+\`\`\`bash
+echo "# Koma initialization" > /home/.komarc
+echo "mkdir -p /home/projects" >> /home/.komarc
+\`\`\`
+
+Then open a new tab to test it.
+
+## RETROSPEC NOTE
+
+The \`.rc\` (run commands) file convention dates to Unix's early days:
+
+- \`.profile\` - Bourne shell (1979)
+- \`.cshrc\` - C shell (1978)
+- \`.bashrc\` - Bash (1989)
+
+Koma's \`.komarc\` follows this time-honored tradition. In 1984-1987, a workstation would absolutely have had an initialization file for customizing the shell environment.
+
+## SEE ALSO
+
+\`sh(1)\` - Execute shell scripts
+\`koma(1)\` - Koma system commands
+\`env(1)\` - View environment variables
+
+## HISTORY
+
+Added in Koma v0.1 (Phase 5 → Phase 6 transition)
+
+---
+
+**Koma Terminal**
+Craton Systems, Inc.
+Part of the Koma Workstation suite
+`,
+
   'man.1.md': `# NAME
 
 man - display manual pages
@@ -1112,6 +2137,256 @@ console.log('Files in home:', files);
 ps(1), kill(1), cron(1)
 `,
 
+  'sh.1.md': `# NAME
+
+sh - execute shell script file
+
+## SYNOPSIS
+
+\`\`\`bash
+sh <script>
+sh -v <script>
+\`\`\`
+
+## DESCRIPTION
+
+The \`sh\` command executes shell scripts - text files containing shell commands (one per line). Each line is executed as if you typed it directly into the terminal.
+
+Shell scripts enable automation, batch operations, and complex workflows using the commands and pipes you already know.
+
+## OPTIONS
+
+### -v, --verbose
+
+Show each command before executing it. Useful for debugging scripts or understanding what they do.
+
+## SCRIPT FORMAT
+
+Shell scripts are plain text files with:
+- **One command per line** - Each line is executed sequentially
+- **Comments** - Lines starting with \`#\` are ignored
+- **Empty lines** - Blank lines are skipped
+- **All shell features** - Pipes, redirects, and all built-in commands work
+
+**Example script** (\`setup.sh\`):
+\`\`\`bash
+# Project setup script
+mkdir myproject
+cd myproject
+echo "console.log('Hello')" > app.js
+echo "# My Project" > README.md
+ls -l
+\`\`\`
+
+## EXAMPLES
+
+### Basic script execution
+
+Create and run a simple script:
+\`\`\`bash
+echo "# Hello script" > hello.sh
+echo "echo 'Hello, World!'" >> hello.sh
+echo "ls" >> hello.sh
+sh hello.sh
+\`\`\`
+
+### Verbose mode
+
+See what the script is doing:
+\`\`\`bash
+sh -v setup.sh
+\`\`\`
+
+Output:
+\`\`\`
++ mkdir myproject
++ cd myproject
++ echo "console.log('Hello')" > app.js
+...
+\`\`\`
+
+### Automation script
+
+Create a backup script (\`backup.sh\`):
+\`\`\`bash
+# Backup important files
+echo "Creating backup..."
+mkdir -p /home/backup
+cp /home/config.json /home/backup/
+cp /home/data.txt /home/backup/
+ls /home/backup
+echo "Backup complete"
+\`\`\`
+
+Run it:
+\`\`\`bash
+sh backup.sh
+\`\`\`
+
+### Data processing pipeline
+
+Create a log analyzer (\`analyze.sh\`):
+\`\`\`bash
+# Analyze log file
+echo "Analyzing logs..."
+grep error log.txt | sort | uniq -c > error-summary.txt
+grep warning log.txt | wc -l > warning-count.txt
+cat error-summary.txt
+echo "Total warnings:"
+cat warning-count.txt
+\`\`\`
+
+### Build script
+
+Create a build process (\`build.sh\`):
+\`\`\`bash
+# Build project
+echo "Building project..."
+find /home/project -name "*.js" > source-files.txt
+cat source-files.txt | wc -l
+echo "Build complete"
+\`\`\`
+
+### Installation script
+
+Setup a new environment (\`install.sh\`):
+\`\`\`bash
+# Setup development environment
+mkdir -p /home/dev/src
+mkdir -p /home/dev/dist
+mkdir -p /home/dev/tests
+echo "console.log('test')" > /home/dev/tests/test.js
+tree /home/dev
+\`\`\`
+
+## SCRIPT BEST PRACTICES
+
+### Use comments
+
+Document what your script does:
+\`\`\`bash
+# Setup project structure
+mkdir project
+
+# Initialize files
+echo "# Project" > project/README.md
+
+# Show results
+ls project
+\`\`\`
+
+### Error handling
+
+Scripts continue even if a command fails. Use \`echo\` to show progress:
+\`\`\`bash
+echo "Step 1: Creating directories..."
+mkdir project
+echo "Step 2: Creating files..."
+echo "content" > project/file.txt
+echo "Done!"
+\`\`\`
+
+### Test incrementally
+
+Build scripts one command at a time:
+1. Test each command manually
+2. Add it to the script
+3. Test the script
+4. Add the next command
+
+### Use pipes and redirects
+
+Take advantage of shell features:
+\`\`\`bash
+# Find and count
+find /home -name "*.txt" | wc -l > txt-count.txt
+
+# Filter and save
+ls | grep ".js" | sort > js-files.txt
+
+# Process and display
+cat data.txt | sort | uniq | tee results.txt
+\`\`\`
+
+## CREATING SCRIPTS
+
+### Method 1: Using echo
+
+\`\`\`bash
+echo "# My script" > script.sh
+echo "echo 'Hello'" >> script.sh
+echo "ls" >> script.sh
+sh script.sh
+\`\`\`
+
+### Method 2: Using vein editor
+
+\`\`\`bash
+vein script.sh
+# Write your script, press Ctrl+S to save
+sh script.sh
+\`\`\`
+
+### Method 3: Using write command
+
+\`\`\`bash
+write script.sh <<EOF
+# My script
+echo "Starting..."
+mkdir test
+echo "Done"
+EOF
+sh script.sh
+\`\`\`
+
+## LIMITATIONS
+
+Current limitations (will be improved in future phases):
+
+- **No variables** - Cannot store values like \`NAME=foo\`
+- **No control flow** - No if/then/else or loops
+- **No functions** - Cannot define reusable functions
+- **No exit codes** - Cannot check if commands succeeded
+- **Line-by-line** - Each line executes independently
+
+Despite these limitations, shell scripts are still very useful for:
+- Automation
+- Batch operations
+- File organization
+- Data processing
+- Setup procedures
+
+## COMPARISON WITH RUN
+
+- **\`sh\`** - Executes shell commands (what you type in the terminal)
+- **\`run\`** - Executes JavaScript code (programming language)
+
+**Use \`sh\` when:**
+- Automating terminal tasks
+- Batch file operations
+- Using pipes and commands
+
+**Use \`run\` when:**
+- Need variables and logic
+- Complex calculations
+- Data manipulation
+- API interactions
+
+## NOTES
+
+- Scripts are just text files with commands
+- Each line executes in sequence
+- Comments (\`#\`) and blank lines are ignored
+- All shell features work (pipes, redirects, etc.)
+- Errors don't stop execution (remaining lines still run)
+- Use \`-v\` to debug and see what's happening
+- No file extension required, but \`.sh\` is conventional
+
+## SEE ALSO
+
+run(1), echo(1), cat(1), vein(1), write(1)
+`,
+
   'version.1.md': `# NAME
 
 version - display Koma version information
@@ -1138,6 +2413,230 @@ version
 ## SEE ALSO
 
 help(1)
+`,
+
+  'wget.1.md': `# NAME
+
+wget - download files from URLs
+
+## SYNOPSIS
+
+\`\`\`bash
+wget <url>
+wget <url> -O <filename>
+wget -q <url>
+\`\`\`
+
+## DESCRIPTION
+
+The \`wget\` command downloads files from HTTP/HTTPS URLs and saves them to the virtual filesystem. It automatically extracts the filename from the URL or you can specify a custom name.
+
+This is useful for:
+- Downloading data files from APIs
+- Fetching configuration files
+- Getting JSON data
+- Downloading scripts or text files
+
+## OPTIONS
+
+### -O, --output FILENAME
+
+Save the downloaded file with a specific name. If not specified, wget extracts the filename from the URL.
+
+**Example:**
+\`\`\`bash
+wget https://example.com/data.json -O mydata.json
+\`\`\`
+
+### -q, --quiet
+
+Quiet mode - suppress progress and status messages. Only errors are shown.
+
+**Example:**
+\`\`\`bash
+wget -q https://api.github.com/users/octocat
+\`\`\`
+
+## EXAMPLES
+
+### Download with auto-detected filename
+
+\`\`\`bash
+wget https://example.com/data.json
+\`\`\`
+
+Downloads and saves as \`data.json\` in current directory.
+
+### Specify output filename
+
+\`\`\`bash
+wget https://api.github.com/users/octocat -O github-user.json
+\`\`\`
+
+Saves the API response as \`github-user.json\`.
+
+### Download in quiet mode
+
+\`\`\`bash
+wget -q https://example.com/config.txt
+\`\`\`
+
+Downloads without showing progress messages.
+
+### Download to specific directory
+
+\`\`\`bash
+cd /home/downloads
+wget https://example.com/file.txt
+\`\`\`
+
+Downloads to \`/home/downloads/file.txt\`.
+
+### Use in shell scripts
+
+\`\`\`bash
+# download-data.sh
+echo "Fetching data..."
+wget https://api.example.com/data.json -O data.json
+echo "Processing data..."
+cat data.json | grep "status"
+echo "Done!"
+\`\`\`
+
+### Download and process in pipeline
+
+\`\`\`bash
+wget -q https://api.github.com/users/octocat -O user.json && cat user.json
+\`\`\`
+
+Downloads and then displays the content.
+
+## PRACTICAL USE CASES
+
+### Download configuration files
+
+\`\`\`bash
+wget https://raw.githubusercontent.com/user/repo/main/config.json
+\`\`\`
+
+### Fetch API data
+
+\`\`\`bash
+wget https://api.github.com/repos/anthropics/claude-code -O repo-info.json
+cat repo-info.json
+\`\`\`
+
+### Download and analyze
+
+\`\`\`bash
+wget https://example.com/log.txt
+grep error log.txt | wc -l
+\`\`\`
+
+### Batch downloads in script
+
+Create \`download.sh\`:
+\`\`\`bash
+# Download multiple files
+wget https://example.com/file1.txt
+wget https://example.com/file2.txt
+wget https://example.com/file3.txt
+ls *.txt
+\`\`\`
+
+Run: \`sh download.sh\`
+
+### Download JSON and extract data
+
+\`\`\`bash
+wget https://api.github.com/users/octocat -O user.json
+cat user.json
+# Manual JSON inspection (no jq yet, but coming in Phase 6!)
+\`\`\`
+
+## OUTPUT FORMAT
+
+### Default output
+
+\`\`\`
+Downloading https://example.com/data.json...
+Saved to data.json (1.25 KB)
+Content-Type: application/json
+\`\`\`
+
+### Quiet mode
+
+No output on success. Errors still shown:
+\`\`\`
+wget: HTTP 404: Not Found
+\`\`\`
+
+## FILENAME EXTRACTION
+
+wget automatically extracts filenames from URLs:
+
+\`\`\`
+https://example.com/data.json        → data.json
+https://example.com/path/to/file.txt → file.txt
+https://example.com/                  → index.html
+https://api.github.com               → api_github_com.txt
+\`\`\`
+
+If no filename can be determined, uses \`downloaded_file.txt\`.
+
+## CORS AND SECURITY
+
+- Subject to browser CORS policies
+- Can only fetch from servers that allow cross-origin requests
+- Most public APIs (GitHub, etc.) support CORS
+- Some websites may block requests
+
+If you get CORS errors, the server doesn't allow browser requests.
+
+## LIMITATIONS
+
+Current limitations:
+
+- **Text files only** - Binary files not supported yet (coming later)
+- **No progress bar** - Just status messages
+- **No resume** - Cannot resume interrupted downloads
+- **No authentication** - No support for auth headers yet
+- **CORS restrictions** - Subject to browser same-origin policy
+
+Despite these limitations, wget is very useful for:
+- Public APIs
+- JSON data
+- Configuration files
+- Text-based resources
+- Scripts and documentation
+
+## NOTES
+
+- Downloads are stored in the IndexedDB-backed VFS
+- Files persist across page reloads
+- Subject to browser storage limits
+- Use \`-O\` to control filename
+- Automatically handles HTTP redirects
+- Shows file size and content type on success
+- Only errors shown in quiet mode
+
+## TROUBLESHOOTING
+
+### "Invalid URL"
+Ensure URL starts with \`http://\` or \`https://\`
+
+### "CORS error" or "Network error"
+The server doesn't allow browser requests. Try a different URL or use an API that supports CORS.
+
+### "HTTP 404" or other errors
+The URL doesn't exist or server is unavailable.
+
+### Large files
+Files are stored in IndexedDB. Very large downloads may exceed browser quotas.
+
+## SEE ALSO
+
+cat(1), sh(1), run(1)
 `,
 
   'argparse.3.md': `# NAME

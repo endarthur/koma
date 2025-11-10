@@ -48,6 +48,12 @@ export class ActivityLED {
    * Set activity state with queueing
    */
   setActivity(activity) {
+    // Check if element exists (might not exist in test environment)
+    if (!this.element) {
+      this.currentActivity = activity;
+      return;
+    }
+
     // Clear existing classes
     this.element.classList.remove('reading', 'writing', 'error');
 

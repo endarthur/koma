@@ -450,6 +450,58 @@ class VFS {
       getRequest.onerror = () => reject(getRequest.error);
     });
   }
+
+  async copyFile(srcPath, destPath) {
+    await this.ready;
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db.transaction([STORE_NAME], 'readwrite');
+      const store = transaction.objectStore(STORE_NAME);
+
+      // Read source file
+      const getRequest = store.get(srcPath);
+
+      getRequest.onsuccess = () => {
+        const entry = getRequest.result;
+        if (!entry) {
+          reject(new Error(`ENOENT: no such file or directory: ${srcPath}`));
+          return;
+        }
+
+        if (entry.type !== 'file') {
+          reject(new Error(`EISDIR: illegal operation on a directory: ${srcPath}`));
+          return;
+        }
+
+        // Create new entry at destination
+        const parts = destPath.split('/').filter(p => p);
+        const name = parts[parts.length - 1];
+        const parent = parts.length === 1 ? '/' : '/' + parts.slice(0, -1).join('/');
+
+        const newEntry = {
+          path: destPath,
+          name,
+          parent,
+          type: 'file',
+          content: entry.content,
+          size: entry.size,
+          created: Date.now(),
+          modified: Date.now(),
+        };
+
+        const putRequest = store.put(newEntry);
+        putRequest.onsuccess = () => resolve();
+        putRequest.onerror = () => reject(putRequest.error);
+      };
+
+      getRequest.onerror = () => reject(getRequest.error);
+    });
+  }
+
+  async move(srcPath, destPath) {
+    // move is the same as rename
+    return this.rename(srcPath, destPath);
+  }
 }
 
 // ============================================================================
@@ -1039,6 +1091,8 @@ class KomaKernel {
   async unlink(path) { return this.vfs.unlink(path); }
   async stat(path) { return this.vfs.stat(path); }
   async rename(oldPath, newPath) { return this.vfs.rename(oldPath, newPath); }
+  async copyFile(srcPath, destPath) { return this.vfs.copyFile(srcPath, destPath); }
+  async move(srcPath, destPath) { return this.vfs.move(srcPath, destPath); }
 
   // ========== Process Methods (Phase 5) ==========
   async spawn(script, args, env) {

@@ -1,0 +1,39 @@
+{
+  "name": "koma-tests",
+  "version": "1.0.0",
+  "description": "Test suite for Koma terminal emulator",
+  "type": "module",
+  "scripts": {
+    "test": "npm run test:unit && npm run test:integration",
+    "test:unit": "uvu tests/unit",
+    "test:integration": "web-test-runner",
+    "test:watch": "web-test-runner --watch",
+    "test:coverage": "web-test-runner --coverage",
+    "test:debug": "web-test-runner --manual",
+    "test:ci": "npm run test:unit && web-test-runner --coverage",
+    "pretest": "echo 'Running Koma test suite...'",
+    "posttest": "echo 'Tests complete!'"
+  },
+  "keywords": [
+    "terminal",
+    "shell",
+    "unix",
+    "browser",
+    "testing"
+  ],
+  "author": "Koma Project",
+  "license": "MIT",
+  "devDependencies": {
+    "@web/test-runner": "^0.18.0",
+    "@web/test-runner-playwright": "^0.11.0",
+    "chai": "^5.0.0",
+    "comlink": "^4.4.1",
+    "playwright": "^1.40.0",
+    "uvu": "^0.5.6"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "bun": ">=1.0.0"
+  },
+  "trustedDependencies": []
+}

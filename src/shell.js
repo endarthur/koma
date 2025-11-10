@@ -41,24 +41,20 @@ export class Shell {
   }
 
   /**
-   * Parse command line into command and arguments
-   *
-   * TODO (Phase 5): Improve parser to handle:
-   * - Quoted strings: echo "hello world" → single arg
-   * - Escape sequences: echo "hello\"world"
-   * - Variable expansion: echo $HOME
-   * - Pipes and redirection: cat file.txt | grep foo > output.txt
+   * Tokenize command line with quote awareness
+   * @param {string} line - Command line to tokenize
+   * @returns {string[]} Array of tokens
    */
-  parseCommand(line) {
-    // Quote-aware parsing (handles single and double quotes)
+  tokenize(line) {
     const trimmed = line.trim();
-    const parts = [];
+    const tokens = [];
     let current = '';
     let inQuotes = false;
     let quoteChar = null;
 
     for (let i = 0; i < trimmed.length; i++) {
       const char = trimmed[i];
+      const nextChar = trimmed[i + 1];
 
       if ((char === '"' || char === "'") && !inQuotes) {
         // Start of quoted string
@@ -68,10 +64,23 @@ export class Shell {
         // End of quoted string
         inQuotes = false;
         quoteChar = null;
-      } else if (char === ' ' && !inQuotes) {
-        // Space outside quotes - end of argument
+      } else if (!inQuotes && (char === '|' || char === '<' || char === '>')) {
+        // Operator outside quotes
         if (current) {
-          parts.push(current);
+          tokens.push(current);
+          current = '';
+        }
+        // Handle >> as single token
+        if (char === '>' && nextChar === '>') {
+          tokens.push('>>');
+          i++; // Skip next char
+        } else {
+          tokens.push(char);
+        }
+      } else if (char === ' ' && !inQuotes) {
+        // Space outside quotes - end of token
+        if (current) {
+          tokens.push(current);
           current = '';
         }
       } else {
@@ -80,20 +89,155 @@ export class Shell {
       }
     }
 
-    // Add last argument
+    // Add last token
     if (current) {
-      parts.push(current);
+      tokens.push(current);
+    }
+
+    return tokens;
+  }
+
+  /**
+   * Parse command line into pipeline structure
+   * Handles pipes (|), output redirection (>, >>), and input redirection (<)
+   *
+   * @param {string} line - Command line to parse
+   * @returns {object} Pipeline structure with stages and redirects
+   *
+   * Structure:
+   * {
+   *   stages: [
+   *     { command: 'cat', args: ['file.txt'] },
+   *     { command: 'grep', args: ['foo'] }
+   *   ],
+   *   inputFile: null | 'file.txt',  // < file.txt
+   *   outputFile: null | 'out.txt',  // > or >>
+   *   outputMode: 'write' | 'append', // > vs >>
+   *   raw: 'original command line'
+   * }
+   */
+  parsePipeline(line) {
+    const tokens = this.tokenize(line);
+    const stages = [];
+    let currentStage = [];
+    let inputFile = null;
+    let outputFile = null;
+    let outputMode = 'write';
+
+    for (let i = 0; i < tokens.length; i++) {
+      const token = tokens[i];
+
+      if (token === '|') {
+        // End current stage, start new one
+        if (currentStage.length > 0) {
+          stages.push({
+            command: currentStage[0],
+            args: currentStage.slice(1)
+          });
+          currentStage = [];
+        }
+      } else if (token === '<') {
+        // Input redirection
+        const nextToken = tokens[i + 1];
+        if (nextToken) {
+          inputFile = nextToken;
+          i++; // Skip the filename
+        }
+      } else if (token === '>' || token === '>>') {
+        // Output redirection
+        const nextToken = tokens[i + 1];
+        if (nextToken) {
+          outputFile = nextToken;
+          outputMode = token === '>>' ? 'append' : 'write';
+          i++; // Skip the filename
+        }
+      } else {
+        // Regular token (command or arg)
+        currentStage.push(token);
+      }
+    }
+
+    // Add final stage
+    if (currentStage.length > 0) {
+      stages.push({
+        command: currentStage[0],
+        args: currentStage.slice(1)
+      });
     }
 
     return {
-      command: parts[0] || '',
-      args: parts.slice(1),
-      raw: trimmed,
+      stages,
+      inputFile,
+      outputFile,
+      outputMode,
+      raw: line.trim(),
+      isPipeline: stages.length > 1 || inputFile !== null || outputFile !== null
     };
   }
 
   /**
-   * Execute a command
+   * Parse command line into command and arguments (simple mode)
+   * Used for basic commands without pipes/redirects
+   *
+   * @param {string} line - Command line to parse
+   * @returns {object} { command, args, raw }
+   */
+  parseCommand(line) {
+    const tokens = this.tokenize(line);
+
+    // Filter out operators (shouldn't be present in simple mode)
+    const parts = tokens.filter(t => !['|', '<', '>', '>>'].includes(t));
+
+    return {
+      command: parts[0] || '',
+      args: parts.slice(1),
+      raw: line.trim(),
+    };
+  }
+
+  /**
+   * Split command line by semicolons (respecting quotes)
+   * @param {string} line - Command line to split
+   * @returns {string[]} Array of command segments
+   */
+  splitBySemicolon(line) {
+    const segments = [];
+    let current = '';
+    let inQuotes = false;
+    let quoteChar = null;
+
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+
+      if ((char === '"' || char === "'") && !inQuotes) {
+        inQuotes = true;
+        quoteChar = char;
+        current += char;
+      } else if (char === quoteChar && inQuotes) {
+        inQuotes = false;
+        quoteChar = null;
+        current += char;
+      } else if (char === ';' && !inQuotes) {
+        // Semicolon outside quotes - split here
+        if (current.trim()) {
+          segments.push(current.trim());
+        }
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+
+    // Add last segment
+    if (current.trim()) {
+      segments.push(current.trim());
+    }
+
+    return segments;
+  }
+
+  /**
+   * Execute a command or pipeline
    */
   async execute(line) {
     if (!line.trim()) return;
@@ -102,8 +246,41 @@ export class Shell {
     this.history.push(line);
     this.historyIndex = this.history.length;
 
-    const { command, args, raw } = this.parseCommand(line);
+    // Check for semicolon separators first
+    const segments = this.splitBySemicolon(line);
 
+    if (segments.length > 1) {
+      // Multiple commands separated by semicolons - execute each in sequence
+      for (const segment of segments) {
+        await this.executeSegment(segment);
+      }
+    } else {
+      // Single command (might be a pipeline)
+      await this.executeSegment(line);
+    }
+  }
+
+  /**
+   * Execute a single command segment (might contain pipes/redirects)
+   */
+  async executeSegment(line) {
+    // Parse as pipeline
+    const pipeline = this.parsePipeline(line);
+
+    // Execute pipeline or simple command
+    if (pipeline.isPipeline) {
+      await this.executePipeline(pipeline);
+    } else {
+      // Simple command execution (no pipes/redirects)
+      const { command, args } = pipeline.stages[0];
+      await this.executeSimple(command, args);
+    }
+  }
+
+  /**
+   * Execute a simple command (no pipes/redirects)
+   */
+  async executeSimple(command, args) {
     // Check if command exists
     if (!this.commands.has(command)) {
       this.term.writeln(`\x1b[31mkoma: command not found: ${command}\x1b[0m`);
@@ -118,6 +295,89 @@ export class Shell {
     } catch (error) {
       this.term.writeln(`\x1b[31mError: ${error.message}\x1b[0m`);
       console.error(error);
+    }
+  }
+
+  /**
+   * Execute a pipeline with pipes and/or redirects
+   */
+  async executePipeline(pipeline) {
+    const { CommandContext, createTerminalContext, createPipedContext, createRedirectedContext } = await import('./utils/command-context.js');
+    const { kernelClient } = await import('./kernel/client.js');
+    const { resolvePath } = await import('./utils/command-utils.js');
+
+    try {
+      const kernel = await kernelClient.getKernel();
+      let stdin = '';
+
+      // Handle input redirection (<)
+      if (pipeline.inputFile) {
+        const inputPath = resolvePath(pipeline.inputFile, this.cwd);
+        stdin = await kernel.readFile(inputPath);
+      }
+
+      // Execute each stage in the pipeline
+      for (let i = 0; i < pipeline.stages.length; i++) {
+        const stage = pipeline.stages[i];
+        const isLastStage = i === pipeline.stages.length - 1;
+        const hasOutputRedirect = isLastStage && pipeline.outputFile;
+
+        // Check if command exists
+        if (!this.commands.has(stage.command)) {
+          this.term.writeln(`\x1b[31mkoma: command not found: ${stage.command}\x1b[0m`);
+          return;
+        }
+
+        // Create context based on pipeline position
+        let context;
+        if (hasOutputRedirect) {
+          context = createRedirectedContext(this.term, stdin);
+        } else if (!isLastStage) {
+          context = createPipedContext(this.term, stdin);
+        } else {
+          // Last stage with no redirect - write to terminal
+          context = createPipedContext(this.term, stdin);
+          context.isPiped = false; // Allow direct terminal output
+        }
+
+        // Execute command with context
+        const handler = this.commands.get(stage.command);
+        await handler(stage.args, this, context);
+
+        // Get output for next stage
+        if (!isLastStage) {
+          stdin = context.getStdout();
+        } else if (hasOutputRedirect) {
+          // Write output to file
+          const outputPath = resolvePath(pipeline.outputFile, this.cwd);
+          const output = context.getStdout();
+
+          if (pipeline.outputMode === 'append') {
+            // Append mode (>>)
+            try {
+              const existing = await kernel.readFile(outputPath);
+              await kernel.writeFile(outputPath, existing + '\n' + output);
+            } catch (error) {
+              // File doesn't exist, create it
+              await kernel.writeFile(outputPath, output);
+            }
+          } else {
+            // Write mode (>)
+            await kernel.writeFile(outputPath, output);
+          }
+        } else {
+          // Last stage, no redirect - output already went to terminal
+          // But if there was output buffered, show it now
+          const output = context.getStdout();
+          if (output) {
+            const lines = output.split('\n');
+            lines.forEach(line => this.term.writeln(line));
+          }
+        }
+      }
+    } catch (error) {
+      this.term.writeln(`\x1b[31mError: ${error.message}\x1b[0m`);
+      console.error('[Pipeline]', error);
     }
   }
 

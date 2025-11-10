@@ -193,6 +193,121 @@ When registering commands, use these categories:
 
 ---
 
+## Shell Command Composition
+
+### Overview
+
+Koma supports Unix-style command composition with pipes, redirects, and command separators.
+
+### Pipelines (`|`)
+
+Chain commands by passing stdout of one to stdin of next:
+
+```bash
+ls | grep txt | sort
+cat file.txt | grep error | wc -l
+find /home -name "*.js" | grep test
+```
+
+**How it works:**
+- Shell parser detects `|` operator
+- Creates pipeline with multiple stages
+- Each stage gets CommandContext with stdin from previous stage
+- Final stage outputs to terminal (or file if redirected)
+
+### Redirects (`>`, `>>`, `<`)
+
+**Output redirection:**
+```bash
+ls > files.txt          # Overwrite
+echo "new" >> log.txt   # Append
+```
+
+**Input redirection:**
+```bash
+sort < unsorted.txt
+wc -l < file.txt
+```
+
+**Combined:**
+```bash
+sort < input.txt > output.txt
+cat file1.txt file2.txt | sort > sorted.txt
+```
+
+### Command Separator (`;`)
+
+Execute multiple commands sequentially:
+
+```bash
+mkdir test ; cd test ; ls
+echo "line 1" > file.txt ; echo "line 2" >> file.txt ; cat file.txt
+```
+
+**How it works:**
+- `splitBySemicolon()` splits line (respecting quotes)
+- Each segment executed in sequence via `executeSegment()`
+- Segments can contain pipes and redirects
+- All commands execute regardless of success/failure
+
+**Example with everything:**
+```bash
+mkdir project ; cd project ; echo "# README" > README.md ; ls | grep md
+```
+
+### CommandContext Pattern
+
+Commands that support pipes MUST use CommandContext:
+
+```javascript
+shell.registerCommand('mycommand', async (args, shell, context) => {
+  const { createTerminalContext } = await import('../utils/command-context.js');
+  const ctx = context || createTerminalContext(shell.term);
+
+  // Check for stdin
+  if (ctx.hasStdin()) {
+    const lines = ctx.getStdinLines();
+    // Process piped input
+  }
+
+  // Write output
+  ctx.writeln('output goes here');
+});
+```
+
+**Key methods:**
+- `ctx.hasStdin()` - Check if input is piped
+- `ctx.getStdinLines()` - Get stdin as array
+- `ctx.writeln(text)` - Write to stdout
+- `ctx.isPiped` - True if output is piped
+- `ctx.isRedirected` - True if output redirected to file
+
+**Adapt behavior based on context:**
+```javascript
+// Disable colors when piped
+const name = ctx.isPiped
+  ? entry.name
+  : `\x1b[34m${entry.name}\x1b[0m`;
+
+// Show line numbers only in terminal
+if (!ctx.isPiped && !ctx.isRedirected) {
+  ctx.writeln(`${lineNum}: ${content}`);
+} else {
+  ctx.writeln(content);
+}
+```
+
+### Future Operators (Phase 9)
+
+Not yet implemented:
+- `&&` - Logical AND (run next only if previous succeeds)
+- `||` - Logical OR (run next only if previous fails)
+- `<< EOF` - Heredoc (multi-line input)
+
+These require exit code support and parser enhancements.
+
+---
+
 ## Kernel Access
 
 ### The Singleton Pattern

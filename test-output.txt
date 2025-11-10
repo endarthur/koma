@@ -1,0 +1,528 @@
+
+> koma-tests@1.0.0 test:integration
+> web-test-runner
+
+
+Chromium: |[90m████████████████████████      [39m| 0/5 test files | [32m0 passed[39m, 0 failed
+
+[1mRunning tests...[22m
+
+[1mRunning 5 test files...
+[22m
+
+[2K[1A[2K[G[1m[36mtests\integration\shell\variables.test.js[39m[22m:
+
+ ❌ Variable Expansion (Phase 6) > Variable Assignment > should assign a simple variable
+      [31mAssertionError: expected undefined to equal 'Alice'[39m
+      [90m  at n.<anonymous> (tests\integration\shell\variables.test.js:27:33)[39m
+
+ ❌ Variable Expansion (Phase 6) > Variable Assignment > should assign variable with spaces (quoted)
+      [31mAssertionError: expected undefined to equal 'Hello World'[39m
+      [90m  at n.<anonymous> (tests\integration\shell\variables.test.js:33:37)[39m
+
+ ❌ Variable Expansion (Phase 6) > Variable Assignment > should assign multiple variables
+      [31mAssertionError: expected undefined to equal 'Alice'[39m
+      [90m  at n.<anonymous> (tests\integration\shell\variables.test.js:39:33)[39m
+
+ ❌ Variable Expansion (Phase 6) > Variable Assignment > should handle empty value
+      [31mAssertionError: expected undefined to equal ''[39m
+      [90m  at n.<anonymous> (tests\integration\shell\variables.test.js:46:34)[39m
+
+ ❌ Variable Expansion (Phase 6) > Variable Expansion > should expand variable with $NAME
+      [31mAssertionError: expected '\u001b[31mkoma: command not found: NA…' to include 'Hello Alice'[39m
+      [90m  at n.<anonymous> (tests\integration\shell\variables.test.js:56:25)[39m
+
+ ❌ Variable Expansion (Phase 6) > Variable Expansion > should expand variable with ${NAME}
+      [31mAssertionError: expected '\u001b[31mkoma: command not found: NA…' to include 'Hello Alice!'[39m
+      [90m  at n.<anonymous> (tests\integration\shell\variables.test.js:64:25)[39m
+
+ ❌ Variable Expansion (Phase 6) > Variable Expansion > should expand multiple variables
+      [31mAssertionError: expected '\u001b[31mkoma: command not found: FI…' to include 'Alice Smith'[39m
+      [90m  at n.<anonymous> (tests\integration\shell\variables.test.js:72:25)[39m
+
+ ❌ Variable Expansion (Phase 6) > Variable Expansion > should handle undefined variables as empty
+      [31mAssertionError: expected 'Hello $UNDEFINED world' to include 'Hello  world'[39m
+      [90m  at n.<anonymous> (tests\integration\shell\variables.test.js:79:25)[39m
+
+ ❌ Variable Expansion (Phase 6) > Variable Expansion > should expand variables in file paths
+      [31mTypeError: Cannot read properties of undefined (reading 'stat')[39m
+      [90m  at n.<anonymous> (tests\integration\shell\variables.test.js:95:33)[39m
+
+ ❌ Variable Expansion (Phase 6) > Special Variables > should provide $? for exit code
+      [31mAssertionError: expected 'test\n$?' to include '0'[39m
+      [90m  at n.<anonymous> (tests\integration\shell\variables.test.js:107:25)[39m
+
+ ❌ Variable Expansion (Phase 6) > Export Variables > should export and assign in one command
+      [31mAssertionError: expected undefined to equal 'Alice'[39m
+      [90m  at n.<anonymous> (tests\integration\shell\variables.test.js:145:33)[39m
+
+ ❌ Variable Expansion (Phase 6) > Variable Expansion Edge Cases > should handle consecutive variables
+      [31mAssertionError: expected '\u001b[31mkoma: command not found: A=…' to include 'foobar'[39m
+      [90m  at n.<anonymous> (tests\integration\shell\variables.test.js:162:25)[39m
+
+ ❌ Variable Expansion (Phase 6) > Variable Expansion Edge Cases > should expand in quoted strings
+      [31mAssertionError: expected '\u001b[31mkoma: command not found: NA…' to include 'Hello Alice'[39m
+      [90m  at n.<anonymous> (tests\integration\shell\variables.test.js:170:25)[39m
+
+ ❌ Variable Expansion (Phase 6) > Variable Expansion Edge Cases > should handle variable in middle of word
+      [31mAssertionError: expected '\u001b[31mkoma: command not found: EX…' to include 'file.txt'[39m
+      [90m  at n.<anonymous> (tests\integration\shell\variables.test.js:186:25)[39m
+
+ ❌ Variable Expansion (Phase 6) > Variable Expansion Edge Cases > should use braces for disambiguation
+      [31mAssertionError: expected '\u001b[31mkoma: command not found: FI…' to include 'testing'[39m
+      [90m  at n.<anonymous> (tests\integration\shell\variables.test.js:194:25)[39m
+
+ ❌ Variable Expansion (Phase 6) > Variable in Pipelines > should expand variables in redirects
+      [31mTypeError: Cannot read properties of undefined (reading 'readFile')[39m
+      [90m  at n.<anonymous> (tests\integration\shell\variables.test.js:212:36)[39m
+
+
+[2K[1A[2K[G[1m[36mtests\integration\commands\ls.test.js[39m[22m:
+
+ ❌ ls command > should not show hidden files without -a flag
+      [31mAssertionError: expected '.hidden  \u001b[34mdir1\u001b[0m  fil…' to not include '.hidden'[39m
+      [90m  at n.<anonymous> (tests\integration\commands\ls.test.js:81:27)[39m
+
+ ❌ ls command > should work in pipeline (one file per line)
+      [31mAssertionError: expected '\u001b[31mfile1\u001b[0m.txt' to include 'file1.txt'[39m
+      [90m  at n.<anonymous> (tests\integration\commands\ls.test.js:89:23)[39m
+
+ ❌ ls command > should error on non-existent directory
+      [31mAssertionError: expected '' to include 'error'[39m
+      [90m  at n.<anonymous> (tests\integration\commands\ls.test.js:108:37)[39m
+
+
+[2K[1A[2K[G[1m[36mtests\integration\shell\pipes-redirection.test.js[39m[22m:
+
+ 🚧 Browser logs:
+      [Pipeline] Error: ENOENT: no such file or directory: /home/nonexistent.txt
+        at request.onsuccess (src\kernel\olivine.js:264:18)
+
+ ❌ Pipes and Redirection > Simple Pipes (|) > should pipe cat output to grep
+      [31mAssertionError: expected '\u001b[31mapple\u001b[0m' to include 'apricot'[39m
+      [90m  at n.<anonymous> (tests\integration\shell\pipes-redirection.test.js:44:25)[39m
+
+ ❌ Pipes and Redirection > Simple Pipes (|) > should pipe echo output to cat
+      [31mAssertionError: expected '\u001b[31mcat: missing file operand\u…' to include 'hello world'[39m
+      [90m  at n.<anonymous> (tests\integration\shell\pipes-redirection.test.js:53:25)[39m
+
+ ❌ Pipes and Redirection > Simple Pipes (|) > should pipe ls output to grep
+      [31mAssertionError: expected '\u001b[31mtest\u001b[0m.txt' to include 'test.txt'[39m
+      [90m  at n.<anonymous> (tests\integration\shell\pipes-redirection.test.js:60:25)[39m
+
+ ❌ Pipes and Redirection > Multi-stage Pipes > should handle echo | cat | cat | cat chain
+      [31mAssertionError: expected '\u001b[31mcat: missing file operand\u…' to include 'test'[39m
+      [90m  at n.<anonymous> (tests\integration\shell\pipes-redirection.test.js:108:25)[39m
+
+ ❌ Pipes and Redirection > Multi-stage Pipes > should handle long pipeline chains
+      [31mAssertionError: expected '\u001b[31mcat: missing file operand\u…' to include 'hello'[39m
+      [90m  at n.<anonymous> (tests\integration\shell\pipes-redirection.test.js:132:25)[39m
+
+ ❌ Pipes and Redirection > Output Redirection (>) > should redirect grep results to file
+      [31mAssertionError: expected 'apple' to include 'apricot'[39m
+      [90m  at n.<anonymous> (tests\integration\shell\pipes-redirection.test.js:168:26)[39m
+
+ ❌ Pipes and Redirection > Input Redirection (<) > should read input from file with grep <
+      [31mAssertionError: expected '\u001b[31mapple\u001b[0m' to include 'apricot'[39m
+      [90m  at n.<anonymous> (tests\integration\shell\pipes-redirection.test.js:261:25)[39m
+
+ ❌ Pipes and Redirection > Input Redirection (<) > should read input from file with cat <
+      [31mAssertionError: expected '\u001b[31mcat: missing file operand\u…' to include 'apple'[39m
+      [90m  at n.<anonymous> (tests\integration\shell\pipes-redirection.test.js:268:25)[39m
+
+ ❌ Pipes and Redirection > Input Redirection (<) > should work with multiple patterns in grep <
+      [31mAssertionError: expected '\u001b[31mtest\u001b[0m line\nanother…' to include 'test line'[39m
+      [90m  at n.<anonymous> (tests\integration\shell\pipes-redirection.test.js:291:25)[39m
+
+ ❌ Pipes and Redirection > Combined Pipes and Redirection > should pipe and redirect: cat | grep > file
+      [31mAssertionError: expected 'apple' to include 'apricot'[39m
+      [90m  at n.<anonymous> (tests\integration\shell\pipes-redirection.test.js:302:26)[39m
+
+ ❌ Pipes and Redirection > Combined Pipes and Redirection > should handle < input | pipe > output
+      [31mAssertionError: expected '' to include 'blueberry'[39m
+      [90m  at n.<anonymous> (tests\integration\shell\pipes-redirection.test.js:324:26)[39m
+
+ ❌ Pipes and Redirection > Combined Pipes and Redirection > should chain multiple pipes with input redirect
+      [31mAssertionError: expected '\u001b[31mcat: missing file operand\u…' to include 'apple'[39m
+      [90m  at n.<anonymous> (tests\integration\shell\pipes-redirection.test.js:350:25)[39m
+
+ ❌ Pipes and Redirection > Error Handling > should handle pipe with failing first command
+      [31mAssertionError: expected '\u001b[31mcat: enoent: no such file o…' to include 'error'[39m
+      [90m  at n.<anonymous> (tests\integration\shell\pipes-redirection.test.js:361:39)[39m
+
+ ❌ Pipes and Redirection > Error Handling > should handle redirect to invalid path
+      [31mAssertionError: expected '' to match /error|not found|enoent/[39m
+      [90m  at n.<anonymous> (tests\integration\shell\pipes-redirection.test.js:376:39)[39m
+
+ ❌ Pipes and Redirection > Error Handling > should propagate errors through pipe chain
+      [31mAssertionError: expected '\u001b[31mcat: enoent: no such file o…' to include 'error'[39m
+      [90m  at n.<anonymous> (tests\integration\shell\pipes-redirection.test.js:398:39)[39m
+
+ ❌ Pipes and Redirection > Edge Cases > should preserve newlines through pipe
+      [31mAssertionError: expected '' to equal 'apple\nbanana\ncherry\napricot\nblueb…'[39m
+      [32m+ expected[39m [31m- actual[39m
+      
+      [32m+apple[39m
+      [32m+banana[39m
+      [32m+cherry[39m
+      [32m+apricot[39m
+      [32m+blueberry[39m
+      
+      [90mat n.<anonymous> (tests\integration\shell\pipes-redirection.test.js:437:23)[39m
+
+ ❌ Pipes and Redirection > Edge Cases > should handle very long pipeline
+      [31mAssertionError: expected '\u001b[31mcat: missing file operand\u…' to include 'test'[39m
+      [90m  at n.<anonymous> (tests\integration\shell\pipes-redirection.test.js:444:25)[39m
+
+ ❌ Pipes and Redirection > Command Context Integration > should properly buffer output in piped context
+      [31mAssertionError: expected 'append-\u001b[31mtest\u001b[0m.txt\n\…' to include 'test.txt'[39m
+      [90m  at n.<anonymous> (tests\integration\shell\pipes-redirection.test.js:469:25)[39m
+
+ ❌ Pipes and Redirection > Command Context Integration > should handle stdin data correctly in piped context
+      [31mAssertionError: expected '\u001b[31mcat: missing file operand\u…' to include 'piped data'[39m
+      [90m  at n.<anonymous> (tests\integration\shell\pipes-redirection.test.js:488:25)[39m
+
+
+[2K[1A[2K[G[1m[36mtests\integration\vfs\vfs-operations.test.js[39m[22m:
+
+ ❌ VFS Operations > mkdir > should error when directory already exists (EEXIST)
+      [31mAssertionError: expected '\u001b[31mmkdir: eexist: directory al…' to include 'error'[39m
+      [90m  at n.<anonymous> (tests\integration\vfs\vfs-operations.test.js:66:39)[39m
+
+ ❌ VFS Operations > mkdir > should error when parent does not exist
+      [31mAssertionError: expected '' to include 'error'[39m
+      [90m  at n.<anonymous> (tests\integration\vfs\vfs-operations.test.js:74:39)[39m
+
+ ❌ VFS Operations > mkdir > should handle missing operand
+      [31mAssertionError: expected '\u001b[31mmkdir: missing operand\u001…' to include 'error'[39m
+      [90m  at n.<anonymous> (tests\integration\vfs\vfs-operations.test.js:95:39)[39m
+
+ ❌ VFS Operations > touch > should handle missing file operand
+      [31mAssertionError: expected '\u001b[31mtouch: missing file operand…' to include 'error'[39m
+      [90m  at n.<anonymous> (tests\integration\vfs\vfs-operations.test.js:171:39)[39m
+
+ ❌ VFS Operations > touch > should handle relative paths
+      [31mError: EEXIST: directory already exists: /home/subdir[39m
+      [90m  at getRequest.onsuccess (src\kernel\olivine.js:331:18)[39m
+
+ ❌ VFS Operations > rm > should remove a single file
+      [31mError: ENOENT: no such file or directory: /home/test.txt[39m
+      [90m  at request.onsuccess (src\kernel\olivine.js:393:18)[39m
+
+ ❌ VFS Operations > rm > should remove file with absolute path
+      [31mError: ENOENT: no such file or directory: /tmp/remove.txt[39m
+      [90m  at request.onsuccess (src\kernel\olivine.js:393:18)[39m
+
+ ❌ VFS Operations > rm > should remove empty directory
+      [31mError: ENOENT: no such file or directory: /home/emptydir[39m
+      [90m  at request.onsuccess (src\kernel\olivine.js:393:18)[39m
+
+ ❌ VFS Operations > rm > should error on non-empty directory without -r flag
+      [31mError: EEXIST: directory already exists: /home/dir1[39m
+      [90m  at getRequest.onsuccess (src\kernel\olivine.js:331:18)[39m
+
+ ❌ VFS Operations > rm > should error on non-existent file
+      [31mAssertionError: expected '' to include 'error'[39m
+      [90m  at n.<anonymous> (tests\integration\vfs\vfs-operations.test.js:262:39)[39m
+
+ ❌ VFS Operations > rm > should handle missing operand
+      [31mAssertionError: expected '\u001b[31mrm: missing operand\u001b[0m' to include 'error'[39m
+      [90m  at n.<anonymous> (tests\integration\vfs\vfs-operations.test.js:269:39)[39m
+
+ ❌ VFS Operations > rm > should remove file from current directory
+      [31mError: ENOENT: no such file or directory: /tmp/file.txt[39m
+      [90m  at request.onsuccess (src\kernel\olivine.js:393:18)[39m
+
+ ❌ VFS Operations > rm > should handle relative paths
+      [31mError: EEXIST: directory already exists: /home/subdir[39m
+      [90m  at getRequest.onsuccess (src\kernel\olivine.js:331:18)[39m
+
+ ❌ VFS Operations > rm > should remove hidden files
+      [31mError: ENOENT: no such file or directory: /home/.hidden[39m
+      [90m  at request.onsuccess (src\kernel\olivine.js:393:18)[39m
+
+ ❌ VFS Operations > rm > should handle files with special characters
+      [31mError: ENOENT: no such file or directory: /home/test-file_123.txt[39m
+      [90m  at request.onsuccess (src\kernel\olivine.js:393:18)[39m
+
+ ❌ VFS Operations > cp > should copy a single file
+      [31mError: ENOENT: no such file or directory: /home/dest.txt[39m
+      [90m  at request.onsuccess (src\kernel\olivine.js:264:18)[39m
+
+ ❌ VFS Operations > cp > should copy file to different directory
+      [31mError: ENOENT: no such file or directory: /tmp/dest/file.txt[39m
+      [90m  at request.onsuccess (src\kernel\olivine.js:264:18)[39m
+
+ ❌ VFS Operations > cp > should copy and rename file
+      [31mError: ENOENT: no such file or directory: /home/new.txt[39m
+      [90m  at request.onsuccess (src\kernel\olivine.js:264:18)[39m
+
+ ❌ VFS Operations > cp > should overwrite existing file
+      [31mAssertionError: expected 'old data' to equal 'new data'[39m
+      [32m+ expected[39m [31m- actual[39m
+      
+      [31m-old data[39m
+      [32m+new data[39m
+      
+      [90mat n.<anonymous> (tests\integration\vfs\vfs-operations.test.js:354:26)[39m
+
+ ❌ VFS Operations > cp > should error when source does not exist
+      [31mAssertionError: expected '\u001b[31mcp: cannot read properties …' to include 'error'[39m
+      [90m  at n.<anonymous> (tests\integration\vfs\vfs-operations.test.js:361:39)[39m
+
+ ❌ VFS Operations > cp > should handle missing operands
+      [31mAssertionError: expected '\u001b[31mcp: missing file operand\u0…' to include 'error'[39m
+      [90m  at n.<anonymous> (tests\integration\vfs\vfs-operations.test.js:368:39)[39m
+
+ ❌ VFS Operations > cp > should handle missing destination
+      [31mAssertionError: expected '\u001b[31mcp: missing file operand\u0…' to include 'error'[39m
+      [90m  at n.<anonymous> (tests\integration\vfs\vfs-operations.test.js:377:39)[39m
+
+ ❌ VFS Operations > cp > should copy with relative paths
+      [31mError: EEXIST: directory already exists: /home/dir1[39m
+      [90m  at getRequest.onsuccess (src\kernel\olivine.js:331:18)[39m
+
+ ❌ VFS Operations > cp > should preserve file content exactly
+      [31mAssertionError: expected 'old data' to equal 'Line 1\nLine 2\n\tTabbed\nSpecial: @#…'[39m
+      [32m+ expected[39m [31m- actual[39m
+      
+      [31m-old data[39m
+      [32m+Line 1[39m
+      [32m+Line 2[39m
+      [32m+	Tabbed[39m
+      [32m+Special: @#$%[39m
+      
+      [90mat n.<anonymous> (tests\integration\vfs\vfs-operations.test.js:398:26)[39m
+
+ ❌ VFS Operations > cp > should copy empty file
+      [31mError: ENOENT: no such file or directory: /home/copy.txt[39m
+      [90m  at request.onsuccess (src\kernel\olivine.js:264:18)[39m
+
+ ❌ VFS Operations > mv > should rename a file
+      [31mError: Path /home/old.txt exists but should not[39m
+      [90m  at assertNotExists (tests\helpers\vfs-test-helper.js:160:11)
+        at async n.<anonymous> (tests\integration\vfs\vfs-operations.test.js:419:7)[39m
+
+ ❌ VFS Operations > mv > should move file to different directory
+      [31mError: EEXIST: directory already exists: /tmp/dest[39m
+      [90m  at getRequest.onsuccess (src\kernel\olivine.js:331:18)[39m
+
+ ❌ VFS Operations > mv > should move and rename file
+      [31mError: EEXIST: directory already exists: /tmp/dest[39m
+      [90m  at getRequest.onsuccess (src\kernel\olivine.js:331:18)[39m
+
+ ❌ VFS Operations > mv > should rename a directory
+      [31mError: Path /home/olddir exists but should not[39m
+      [90m  at assertNotExists (tests\helpers\vfs-test-helper.js:160:11)
+        at async n.<anonymous> (tests\integration\vfs\vfs-operations.test.js:452:7)[39m
+
+ ❌ VFS Operations > mv > should overwrite existing file
+      [31mError: Path /home/source.txt exists but should not[39m
+      [90m  at assertNotExists (tests\helpers\vfs-test-helper.js:160:11)
+        at async n.<anonymous> (tests\integration\vfs\vfs-operations.test.js:462:7)[39m
+
+ ❌ VFS Operations > mv > should error when source does not exist
+      [31mAssertionError: expected '\u001b[31mmv: cannot read properties …' to include 'error'[39m
+      [90m  at n.<anonymous> (tests\integration\vfs\vfs-operations.test.js:471:39)[39m
+
+ ❌ VFS Operations > mv > should handle missing operands
+      [31mAssertionError: expected '\u001b[31mmv: missing file operand\u0…' to include 'error'[39m
+      [90m  at n.<anonymous> (tests\integration\vfs\vfs-operations.test.js:478:39)[39m
+
+ ❌ VFS Operations > mv > should handle missing destination
+      [31mAssertionError: expected '\u001b[31mmv: missing file operand\u0…' to include 'error'[39m
+      [90m  at n.<anonymous> (tests\integration\vfs\vfs-operations.test.js:487:39)[39m
+
+ ❌ VFS Operations > mv > should handle relative paths
+      [31mError: EEXIST: directory already exists: /home/dir1[39m
+      [90m  at getRequest.onsuccess (src\kernel\olivine.js:331:18)[39m
+
+ ❌ VFS Operations > mv > should preserve file content during move
+      [31mAssertionError: expected 'old content' to equal 'Line 1\nLine 2\n\tTabbed\nSpecial: @#…'[39m
+      [32m+ expected[39m [31m- actual[39m
+      
+      [31m-old content[39m
+      [32m+Line 1[39m
+      [32m+Line 2[39m
+      [32m+	Tabbed[39m
+      [32m+Special: @#$%[39m
+      
+      [90mat n.<anonymous> (tests\integration\vfs\vfs-operations.test.js:509:26)[39m
+
+ ❌ VFS Operations > mv > should move empty file
+      [31mError: Path /home/empty.txt exists but should not[39m
+      [90m  at assertNotExists (tests\helpers\vfs-test-helper.js:160:11)
+        at async n.<anonymous> (tests\integration\vfs\vfs-operations.test.js:517:7)[39m
+
+ ❌ VFS Operations > write > should handle missing operands
+      [31mAssertionError: expected '\u001b[31mwrite: missing file operand…' to include 'error'[39m
+      [90m  at n.<anonymous> (tests\integration\vfs\vfs-operations.test.js:586:39)[39m
+
+ ❌ VFS Operations > write > should handle missing content
+      [31mAssertionError: expected '\u001b[31mwrite: missing file operand…' to include 'error'[39m
+      [90m  at n.<anonymous> (tests\integration\vfs\vfs-operations.test.js:594:39)[39m
+
+ ❌ VFS Operations > write > should create file in nested directory
+      [31mError: EEXIST: directory already exists: /home/dir1[39m
+      [90m  at getRequest.onsuccess (src\kernel\olivine.js:331:18)[39m
+
+ ❌ VFS Operations > Edge Cases > should handle paths with double slashes
+      [31mError: ENOENT: no such file or directory: /home//test[39m
+      [90m  at request.onsuccess (src\kernel\olivine.js:393:18)[39m
+
+ ❌ VFS Operations > Edge Cases > should handle parent directory reference (..)
+      [31mError: EEXIST: directory already exists: /home/subdir[39m
+      [90m  at getRequest.onsuccess (src\kernel\olivine.js:331:18)[39m
+
+ ❌ VFS Operations > Edge Cases > should handle rapid sequential operations
+      [31mError: EEXIST: directory already exists: /home/dir1[39m
+      [90m  at getRequest.onsuccess (src\kernel\olivine.js:331:18)[39m
+
+ ❌ VFS Operations > Integration - Multiple Operations > should create, write, read, and delete file
+      [31mError: ENOENT: no such file or directory: /home/test.txt[39m
+      [90m  at request.onsuccess (src\kernel\olivine.js:393:18)[39m
+
+ ❌ VFS Operations > Integration - Multiple Operations > should create directory, add files, and remove
+      [31mError: ENOENT: no such file or directory: /home/mydir[39m
+      [90m  at request.onsuccess (src\kernel\olivine.js:393:18)[39m
+
+ ❌ VFS Operations > Integration - Multiple Operations > should copy file and verify both exist
+      [31mError: ENOENT: no such file or directory: /home/copy.txt[39m
+      [90m  at request.onsuccess (src\kernel\olivine.js:264:18)[39m
+
+ ❌ VFS Operations > Integration - Multiple Operations > should move file and verify source is gone
+      [31mError: Path /home/source.txt exists but should not[39m
+      [90m  at assertNotExists (tests\helpers\vfs-test-helper.js:160:11)
+        at async n.<anonymous> (tests\integration\vfs\vfs-operations.test.js:853:7)[39m
+
+ ❌ VFS Operations > Integration - Multiple Operations > should handle file operations across directories
+      [31mError: EEXIST: directory already exists: /home/dir1[39m
+      [90m  at getRequest.onsuccess (src\kernel\olivine.js:331:18)[39m
+
+ ❌ VFS Operations > rm - Additional Tests > should remove multiple files in sequence
+      [31mError: ENOENT: no such file or directory: /home/file1.txt[39m
+      [90m  at request.onsuccess (src\kernel\olivine.js:393:18)[39m
+
+ ❌ VFS Operations > rm - Additional Tests > should remove file with long name
+      [31mError: ENOENT: no such file or directory: /home/file_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.txt[39m
+      [90m  at request.onsuccess (src\kernel\olivine.js:393:18)[39m
+
+ ❌ VFS Operations > rm - Additional Tests > should remove file from tmp directory
+      [31mError: ENOENT: no such file or directory: /tmp/tempfile.txt[39m
+      [90m  at request.onsuccess (src\kernel\olivine.js:393:18)[39m
+
+ ❌ VFS Operations > rm - Additional Tests > should remove file with numeric name
+      [31mError: ENOENT: no such file or directory: /home/123.txt[39m
+      [90m  at request.onsuccess (src\kernel\olivine.js:393:18)[39m
+
+ ❌ VFS Operations > rm - Additional Tests > should handle removing same file twice
+      [31mAssertionError: expected '' to include 'error'[39m
+      [90m  at n.<anonymous> (tests\integration\vfs\vfs-operations.test.js:1053:39)[39m
+
+ ❌ VFS Operations > cp - Additional Tests > should copy file within same directory
+      [31mError: ENOENT: no such file or directory: /home/copy.txt[39m
+      [90m  at request.onsuccess (src\kernel\olivine.js:264:18)[39m
+
+ ❌ VFS Operations > cp - Additional Tests > should copy file with long content
+      [31mAssertionError: expected 'old content' to equal 'Lorem ipsum Lorem ipsum Lorem ipsum L…'[39m
+      [32m+ expected[39m [31m- actual[39m
+      
+      [31m-old content[39m
+      [32m+Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum [39m
+      
+      [90mat n.<anonymous> (tests\integration\vfs\vfs-operations.test.js:1076:26)[39m
+
+ ❌ VFS Operations > cp - Additional Tests > should copy file with special content
+      [31mAssertionError: expected 'old content' to equal 'Tab:\t\nNewline\nQuote:"'[39m
+      [32m+ expected[39m [31m- actual[39m
+      
+      [31m-old content[39m
+      [32m+Tab:	[39m
+      [32m+Newline[39m
+      [32m+Quote:"[39m
+      
+      [90mat n.<anonymous> (tests\integration\vfs\vfs-operations.test.js:1086:26)[39m
+
+ ❌ VFS Operations > cp - Additional Tests > should copy multiple files in sequence
+      [31mError: ENOENT: no such file or directory: /home/copy1.txt[39m
+      [90m  at request.onsuccess (src\kernel\olivine.js:264:18)[39m
+
+ ❌ VFS Operations > cp - Additional Tests > should copy to tmp directory
+      [31mAssertionError: expected 'tmp content' to equal 'content'[39m
+      [32m+ expected[39m [31m- actual[39m
+      
+      [31m-tmp content[39m
+      [32m+content[39m
+      
+      [90mat n.<anonymous> (tests\integration\vfs\vfs-operations.test.js:1109:26)[39m
+
+ ❌ VFS Operations > mv - Additional Tests > should rename file in place
+      [31mError: Path /home/old.txt exists but should not[39m
+      [90m  at assertNotExists (tests\helpers\vfs-test-helper.js:160:11)
+        at async n.<anonymous> (tests\integration\vfs\vfs-operations.test.js:1131:7)[39m
+
+ ❌ VFS Operations > mv - Additional Tests > should move file with long content
+      [31mError: Path /home/file.txt exists but should not[39m
+      [90m  at assertNotExists (tests\helpers\vfs-test-helper.js:160:11)
+        at async n.<anonymous> (tests\integration\vfs\vfs-operations.test.js:1142:7)[39m
+
+ ❌ VFS Operations > mv - Additional Tests > should move file across directories
+      [31mError: EEXIST: directory already exists: /home/dir1[39m
+      [90m  at getRequest.onsuccess (src\kernel\olivine.js:331:18)[39m
+
+ ❌ VFS Operations > mv - Additional Tests > should move and rename simultaneously
+      [31mError: EEXIST: directory already exists: /home/dir1[39m
+      [90m  at getRequest.onsuccess (src\kernel\olivine.js:331:18)[39m
+
+ ❌ VFS Operations > mv - Additional Tests > should move hidden file
+      [31mError: Path /home/.hidden exists but should not[39m
+      [90m  at assertNotExists (tests\helpers\vfs-test-helper.js:160:11)
+        at async n.<anonymous> (tests\integration\vfs\vfs-operations.test.js:1175:7)[39m
+
+ ❌ VFS Operations > VFS stat > should return correct file type for directory
+      [31mError: EEXIST: directory already exists: /home/dir[39m
+      [90m  at getRequest.onsuccess (src\kernel\olivine.js:331:18)[39m
+
+ ❌ VFS Operations > VFS readdir > should list directory entries
+      [31mError: EEXIST: directory already exists: /home/dir1[39m
+      [90m  at getRequest.onsuccess (src\kernel\olivine.js:331:18)[39m
+
+ ❌ VFS Operations > VFS readdir > should list nested directory
+      [31mError: EEXIST: directory already exists: /home/dir1[39m
+      [90m  at getRequest.onsuccess (src\kernel\olivine.js:331:18)[39m
+
+ ❌ VFS Operations > Path Resolution > should handle nested relative paths
+      [31mError: EEXIST: directory already exists: /home/dir1[39m
+      [90m  at getRequest.onsuccess (src\kernel\olivine.js:331:18)[39m
+
+ ❌ VFS Operations > Path Resolution > should handle parent directory (..) in path
+      [31mError: EEXIST: directory already exists: /home/dir1[39m
+      [90m  at getRequest.onsuccess (src\kernel\olivine.js:331:18)[39m
+
+ ❌ VFS Operations > Path Resolution > should handle multiple parent references (../../)
+      [31mError: EEXIST: directory already exists: /home/a[39m
+      [90m  at getRequest.onsuccess (src\kernel\olivine.js:331:18)[39m
+
+ ❌ VFS Operations > Path Resolution > should handle home directory expansion (~)
+      [31mAssertionError: expected '\u001b[31mcat: ENOENT: no such file o…' to include 'home content'[39m
+      [90m  at n.<anonymous> (tests\integration\vfs\vfs-operations.test.js:1407:25)[39m
+
+ ❌ VFS Operations > Concurrent Operations > should handle multiple directory creations
+      [31mError: EEXIST: directory already exists: /home/dir1[39m
+      [90m  at getRequest.onsuccess (src\kernel\olivine.js:331:18)[39m
+
+ ❌ VFS Operations > Concurrent Operations > should handle mixed operations concurrently
+      [31mError: EEXIST: directory already exists: /home/newdir[39m
+      [90m  at getRequest.onsuccess (src\kernel\olivine.js:331:18)[39m
+
+Chromium: |[37m██████████████████████████████[39m| 5/5 test files | [32m188 passed[39m, [31m109 failed[39m
+
+Code coverage: [1m[31m60.87 %[39m[22m
+Coverage for [1mlines[22m failed with [1m[31m52.17 %[39m[22m compared to configured [1m60 %[22m
+Coverage for [1mstatements[22m failed with [1m[31m52.17 %[39m[22m compared to configured [1m60 %[22m
+Coverage for [1mfunctions[22m failed with [1m[31m46.03 %[39m[22m compared to configured [1m60 %[22m
+View full coverage report at [4mcoverage\lcov-report\index.html[24m
+
+[1m[31mFinished running tests in 2.2s, failed to meet coverage threshold.[39m[22m
+
+

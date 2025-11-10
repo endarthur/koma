@@ -16,3 +16,7 @@ npm-debug.log*
 # Temporary files
 *.tmp
 .cache/
+
+# Dependencies (testing only)
+node_modules/
+package-lock.json

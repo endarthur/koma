@@ -42,7 +42,7 @@ export class TabManager {
   /**
    * Create a new tab
    */
-  createTab(name = null, restoreState = null, tabId = null) {
+  async createTab(name = null, restoreState = null, tabId = null) {
     // Use provided ID (for restoration) or generate new one
     if (tabId === null) {
       tabId = this.nextTabId++;
@@ -95,6 +95,12 @@ export class TabManager {
 
     // Get the tab we just created
     const createdTab = this.tabs.get(tabId);
+
+    // Load .komarc for new tabs (not restored ones)
+    // This runs AFTER tab is visible but BEFORE welcome message
+    if (!restoreState) {
+      await this.loadKomarc(shell);
+    }
 
     // Write welcome message and prompt for new tabs (not restored)
     if (!restoreState) {
@@ -747,6 +753,41 @@ export class TabManager {
     // Create first tab if none exist
     if (this.tabs.size === 0) {
       this.createTab();
+    }
+  }
+
+  /**
+   * Load and execute .komarc if it exists
+   * Silently ignores if file doesn't exist
+   */
+  async loadKomarc(shell) {
+    try {
+      const { kernelClient } = await import('../kernel/client.js');
+      const kernel = await kernelClient.getKernel();
+      const komaRcPath = '/home/.komarc';
+
+      // Try to read .komarc
+      const content = await kernel.readFile(komaRcPath);
+
+      // Execute like a shell script
+      const lines = content.split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0 && !line.startsWith('#'));
+
+      // Execute each line
+      for (const line of lines) {
+        try {
+          await shell.execute(line);
+        } catch (error) {
+          // Log errors but continue executing
+          console.error('[.komarc]', `Error executing: ${line}`, error);
+        }
+      }
+    } catch (error) {
+      // Silently ignore if .komarc doesn't exist
+      if (!error.message.includes('ENOENT')) {
+        console.error('[.komarc]', error);
+      }
     }
   }
 }

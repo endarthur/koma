@@ -65,6 +65,7 @@ Browser-resident automation workstation that emulates a single-user Unix termina
 - [x] Tab persistence via localStorage
   - Saves: tab names, cwd, history, active tab
   - Restores on page reload
+- [x] `.komarc` initialization file (executed on new tab creation)
 - [x] Status bar updates (shows current cwd)
 - [x] Input handling:
   - Enter - Execute command
@@ -124,11 +125,11 @@ Browser-resident automation workstation that emulates a single-user Unix termina
   - Read/write text files
 
 **Deferred to Later Phases:**
-- `find` command - Search filesystem (Phase 9)
+- `find` command - ✅ **Implemented in Phase 5.6**
 - Binary file support (when needed)
 - Stream large files (when needed)
-- File System Access API integration for `/mnt` (Phase 9)
-- Permissions enforcement (Phase 7 or single-user simplification)
+- File System Access API integration for `/mnt` (Phase 12+)
+- Permissions enforcement (single-user system, not needed)
 
 **Architecture Notes:**
 - Service worker stays alive as "kernel"
@@ -398,7 +399,594 @@ Browser-resident automation workstation that emulates a single-user Unix termina
 
 ---
 
-### 🔮 Phase 6: Package Management (Spinifex)
+### ✅ Phase 5.6: Pipes and Redirection (COMPLETE)
+**Goal:** Implement Unix-style pipes and I/O redirection for command composition
+
+**Completed:**
+- [x] **Pipeline Operator (`|`):**
+  - Chain commands: `cat file.txt | grep foo | sort`
+  - Pass stdout of one command to stdin of next
+  - Support multi-stage pipelines
+  - Works with all commands
+- [x] **Output Redirection (`>`, `>>`):**
+  - Redirect stdout to file: `ls > files.txt`
+  - Append to file: `echo "line" >> log.txt`
+  - Overwrite or append modes
+- [x] **Input Redirection (`<`):**
+  - Read stdin from file: `sort < unsorted.txt`
+  - Feed file contents to commands
+  - Works with all stdin-capable commands
+- [x] **Command Separator (`;`):**
+  - Execute multiple commands sequentially: `mkdir test ; cd test ; ls`
+  - Respects quotes (semicolons in strings don't split)
+  - Each segment can contain pipes and redirects
+  - Commands execute regardless of success/failure
+- [x] **CommandContext Abstraction:**
+  - Created `src/utils/command-context.js`
+  - Abstract stdin/stdout for all commands
+  - Commands write to context, not directly to terminal
+  - Automatic adaptation for terminal vs pipe mode
+- [x] **New Commands:**
+  - `find` - Search filesystem by name/pattern with wildcards
+  - `sort` - Sort lines (with `-r` reverse, `-n` numeric)
+  - `uniq` - Remove duplicate lines (with `-c` count)
+  - `tee` - Write to file and stdout (with `-a` append)
+  - `sh` - Execute shell scripts (with `-v` verbose)
+  - `wget` - Download files from URLs (with `-O` output, `-q` quiet)
+- [x] **Command Updates:**
+  - `cat` - Now supports multiple files (true concatenation!)
+  - `grep` - Full argparse with `-n`, `-i`, `-v`, `-c` flags, stdin support
+  - `ls` - Context-aware (one-per-line in pipes, no colors when piped)
+  - `echo` - Context-aware output
+  - `wc` - Full argparse with `-l`, `-w`, `-c` flags, stdin support
+- [x] **Parser Enhancements:**
+  - `tokenize()` - Quote-aware tokenization with operator detection
+  - `parsePipeline()` - Detects `|`, `>`, `>>`, `<` operators
+  - `executePipeline()` - Chains commands with proper stdin/stdout flow
+  - Preserves existing simple command execution
+
+**Architecture:**
+- **CommandContext** provides:
+  - `write(text)` - Write to stdout
+  - `writeln(text)` - Write line to stdout
+  - `getStdin()` - Read from stdin
+  - `hasStdin()` - Check if stdin available
+  - `isPiped` / `isRedirected` - Detect pipeline position
+- **Pipeline execution:**
+  - Parse entire line for operators
+  - Build command chain
+  - Execute stages with stdin → stdout flow
+  - Handle input/output file redirection
+- **Backward compatible:**
+  - Simple commands work unchanged
+  - Context parameter optional (defaults to terminal)
+
+**Shell Scripting:**
+- `sh script.sh` executes shell scripts line-by-line
+- Comments (`#`) and blank lines ignored
+- Each command uses full shell features (pipes, redirects)
+- Verbose mode (`-v`) for debugging
+- Enables automation and batch operations
+
+**Network Operations:**
+- `wget` downloads from HTTP/HTTPS URLs
+- Automatic filename detection from URLs
+- Saves to VFS for persistent storage
+- Useful for fetching data, configs, scripts
+
+**Man Pages:**
+- Created man pages for all new commands
+- Updated grep.1.md with full flag documentation
+- **Total: 44 man pages** (38 commands + 5 stdlib APIs + sh + wget)
+  - Section 1: User commands (filesystem, shell, process)
+  - Section 3: Library APIs (fs, http, notify, path, argparse)
+
+**Examples Working:**
+```bash
+# Find and filter
+find /usr/share/man -name "*.1" | grep cron
+
+# Multi-stage pipelines
+cat file1.txt file2.txt | grep error | sort | uniq > errors.txt
+
+# Tee to save and display
+ls | tee files.txt | wc -l
+
+# Download and process
+wget https://api.github.com/users/octocat -O user.json
+cat user.json
+
+# Shell scripting
+vein setup.sh  # Create script
+sh setup.sh    # Execute it
+
+# Complex pipeline
+find /home -name "*.txt" | sort | tee found.txt | wc -l
+
+# Command separator (sequential execution)
+mkdir test ; cd test ; pwd ; ls
+
+# Semicolons with pipes and redirects
+cd /home ; echo "data" > file.txt ; cat file.txt | grep data
+```
+
+**Benefits Achieved:**
+- ✅ True Unix-like shell composition
+- ✅ Commands are building blocks
+- ✅ Powerful data processing
+- ✅ Matches user expectations
+- ✅ Shell scripting enables automation
+- ✅ wget enables data fetching
+
+**Files Modified:**
+- `src/shell.js` - Added tokenize(), parsePipeline(), executePipeline(), splitBySemicolon(), executeSegment()
+- `src/utils/command-context.js` - Created CommandContext abstraction
+- `src/commands/filesystem.js` - Added find, sort, uniq, tee; updated cat, grep, ls, wc
+- `src/commands/shell.js` - Added sh, wget; updated echo
+- `docs/man/` - Added 6 new man pages, updated grep.1.md
+- `DEVELOPMENT.md` - Added "Shell Command Composition" section documenting pipes, redirects, and semicolons
+
+---
+
+## Shell Compatibility & Evolution
+
+### Current Level: Thompson Shell (1971) + Modern Commands
+
+Koma is currently at the level of the **original Thompson Shell from 1971 Unix** - a command interpreter with pipes, redirects, and sequential execution, but no programming constructs.
+
+**What We Have:**
+- ✅ Interactive command execution
+- ✅ Pipes (`|`) for command chaining
+- ✅ Redirects (`>`, `>>`, `<`) for I/O
+- ✅ Sequential execution (`;`) for one-liners
+- ✅ Quote handling (`"..."`, `'...'`)
+- ✅ Comments in scripts (`#`)
+- ✅ Command history
+- ✅ Modern commands (find, grep, sort, wget, etc.)
+- ✅ Shell script execution (`sh`)
+
+**What We're Missing for POSIX sh (dash) Compatibility:**
+
+**Critical for Scripting:**
+- ❌ Variables (`NAME=value`, `$NAME`, `${NAME}`)
+- ❌ Exit codes (`$?` for last command status)
+- ❌ Conditionals (`if [ condition ]; then ... fi`)
+- ❌ Loops (`for`, `while`, `until`)
+- ❌ Functions (`name() { ... }`)
+- ❌ Test command (`[ -f file ]`, `[ "$a" = "$b" ]`)
+- ❌ Command substitution (`` `command` `` or `$(command)`)
+- ❌ Logical operators (`&&`, `||`) - **planned Phase 9**
+
+**Nice-to-Have:**
+- ❌ Heredocs (`<< EOF`) - **planned Phase 9**
+- ❌ Case statements (`case $var in ... esac`)
+- ❌ Parameter expansion (`${var:-default}`)
+- ❌ Arithmetic (`$((1 + 2))`)
+- ❌ Glob expansion (`*.txt` expands to files)
+- ❌ Subshells (`(command)`)
+- ❌ Background jobs (`command &`)
+
+### Target: dash (Debian Almquist Shell) - POSIX sh Compliance
+
+**dash** is the minimal POSIX-compliant shell - the "least common denominator" that `/bin/sh` points to on Debian/Ubuntu systems. It's what we should aim for to run standard shell scripts.
+
+**Roadmap to POSIX sh:**
+
+**Phase 6** (Parser Refactoring):
+1. Exit codes and `$?` variable
+2. Test command for conditionals
+3. Basic variable assignment and expansion
+
+**Phase 8** (Shell Programming):
+1. Variables and parameter expansion
+2. Conditionals (if/then/else)
+3. Loops (for/while)
+4. Functions
+
+**Phase 10** (Advanced Features):
+1. `&&` and `||` operators
+2. Heredoc support
+3. Command substitution
+
+With these additions, Koma would be **POSIX sh compatible** and could run any standard shell script that works in dash!
+
+**Current Status:**
+- **Interactive use:** Excellent! Pipes, redirects, and modern commands make it powerful
+- **Scripting:** Good for linear automation, but no conditionals or loops yet
+- **Compatibility:** Thompson Shell era (1971), not yet POSIX sh (1992)
+
+### POSIX Compliance Study: Beyond dash
+
+After completing Phases 6, 8, & 10, Koma would achieve **core POSIX sh scripting capability** - enough to run most standard shell scripts. However, full POSIX.1-2017 shell specification includes additional features that would still be missing.
+
+This section documents the gap between "dash-level scripting" and "100% POSIX compliance" for future reference.
+
+#### Features Planned (Phases 6, 8, & 10)
+
+These would make us **~80% POSIX compliant**:
+- ✅ Variables (`NAME=value`, `$NAME`, `${NAME}`)
+- ✅ Exit codes (`$?`)
+- ✅ Conditionals (`if/then/else/elif/fi`)
+- ✅ Loops (`for/while/until/do/done`, `break`, `continue`)
+- ✅ Functions (`name() { ... }`)
+- ✅ Test command (`[ ... ]`)
+- ✅ Logical operators (`&&`, `||`)
+- ✅ Command substitution (`$(command)`)
+- ✅ Heredocs (`<< EOF`)
+
+#### Missing POSIX Features (Post Phase 9)
+
+**Category 1: Critical for Interactive Scripts**
+
+These are commonly used and would significantly improve script compatibility:
+
+- **`read` command** - Read user input into variables
+  ```sh
+  read -p "Enter name: " name
+  echo "Hello, $name"
+  ```
+  *Priority: HIGH* - Many scripts need user input
+
+- **`. / source` command** - Execute script in current shell context
+  ```sh
+  . ./config.sh    # Import functions and variables
+  source ~/.bashrc
+  ```
+  *Priority: HIGH* - Essential for script libraries and config files
+
+- **Positional parameters** - Script arguments
+  ```sh
+  # script.sh
+  echo "Script: $0"      # Script name
+  echo "First arg: $1"   # First argument
+  echo "All args: $@"    # All arguments as array
+  echo "Arg count: $#"   # Number of arguments
+  shift                  # Shift arguments left
+  ```
+  *Priority: HIGH* - Almost all scripts use these
+
+- **Glob expansion** - Wildcard pattern matching
+  ```sh
+  ls *.txt               # Expands to actual files
+  rm file[0-9].log       # Bracket expressions
+  for f in *.md; do cat "$f"; done
+  ```
+  *Priority: HIGH* - Very common in shell usage
+
+- **`case` statements** - Pattern matching conditionals
+  ```sh
+  case $var in
+    foo) echo "Found foo" ;;
+    bar|baz) echo "Found bar or baz" ;;
+    *) echo "Default" ;;
+  esac
+  ```
+  *Priority: MEDIUM-HIGH* - Common alternative to if/elif chains
+
+- **Basic parameter expansion** - Variable manipulation
+  ```sh
+  ${var:-default}    # Use default if unset
+  ${var:=default}    # Assign default if unset
+  ${var:?error}      # Error if unset
+  ${var:+value}      # Use value if set
+  ```
+  *Priority: MEDIUM* - Common in robust scripts
+
+**Category 2: Advanced Scripting Features**
+
+Useful for sophisticated scripts but less commonly needed:
+
+- **`eval` command** - Evaluate string as shell command
+  ```sh
+  cmd="ls -l"
+  eval $cmd
+  ```
+  *Priority: LOW* - Often avoidable, security risk
+
+- **`exec` command** - Replace shell with another command
+  ```sh
+  exec python script.py   # Shell becomes Python process
+  ```
+  *Priority: LOW* - Rarely needed in scripts
+
+- **`shift` command** - Shift positional parameters
+  ```sh
+  while [ $# -gt 0 ]; do
+    case $1 in
+      --flag) handle_flag ;;
+    esac
+    shift
+  done
+  ```
+  *Priority: MEDIUM* - Useful for argument parsing
+
+- **`getopts` builtin** - Parse command options
+  ```sh
+  while getopts "a:b:c" opt; do
+    case $opt in
+      a) arg_a=$OPTARG ;;
+    esac
+  done
+  ```
+  *Priority: MEDIUM* - We have argparse module instead
+
+- **`set` builtin** - Set shell options and parameters
+  ```sh
+  set -e              # Exit on error
+  set -u              # Error on undefined variables
+  set -x              # Print commands before executing
+  set -- arg1 arg2    # Set positional parameters
+  ```
+  *Priority: MEDIUM* - Common for script safety
+
+- **`unset` command** - Remove variables/functions
+  ```sh
+  unset VAR
+  unset -f function_name
+  ```
+  *Priority: LOW* - Rarely needed
+
+- **`export` builtin** - Mark variables for child processes
+  ```sh
+  export PATH=/usr/bin:$PATH
+  ```
+  *Priority: MEDIUM* - Needed for environment setup
+
+- **`readonly` builtin** - Immutable variables
+  ```sh
+  readonly CONFIG_FILE=/etc/config
+  ```
+  *Priority: LOW* - Nice to have, rarely critical
+
+- **`trap` command** - Signal and error handlers
+  ```sh
+  trap 'cleanup' EXIT
+  trap 'handle_error' ERR
+  trap 'echo "Interrupted"' INT
+  ```
+  *Priority: LOW* - Useful for cleanup, but not essential
+
+- **Advanced parameter expansion** - String manipulation
+  ```sh
+  ${#var}             # String length
+  ${var%suffix}       # Remove shortest suffix
+  ${var%%suffix}      # Remove longest suffix
+  ${var#prefix}       # Remove shortest prefix
+  ${var##prefix}      # Remove longest prefix
+  ${var/pattern/str}  # Replace first match (bash extension)
+  ${var//pattern/str} # Replace all matches (bash extension)
+  ```
+  *Priority: LOW* - Can work around with external commands
+
+- **Arithmetic expansion** - Math in shell
+  ```sh
+  result=$((2 + 3 * 4))
+  count=$((count + 1))
+  if [ $((x > 5)) -eq 1 ]; then
+  ```
+  *Priority: MEDIUM* - Common in loops and counters
+
+- **Subshells** - Isolated execution environment
+  ```sh
+  (cd /tmp && do_something)   # Doesn't change parent's cwd
+  output=$(cd /tmp; pwd)      # Already have via command substitution
+  ```
+  *Priority: LOW* - Command substitution covers most use cases
+
+- **Command grouping** - Group in current shell
+  ```sh
+  { command1; command2; } > output.txt
+  ```
+  *Priority: LOW* - Can use functions instead
+
+**Category 3: Job Control**
+
+Background process management (limited utility in browser):
+
+- **Background jobs** - `command &`
+- **`fg` / `bg`** - Foreground/background control
+- **`jobs`** - List background jobs
+- **Job specifications** - `%1`, `%+`, `%-`
+- **Signal handling** - SIGTSTP, SIGCONT, SIGCHLD
+
+*Priority: VERY LOW* - Our cron scheduler covers most background execution needs
+
+**Category 4: Advanced I/O**
+
+File descriptor manipulation (rarely needed):
+
+- **File descriptors** - `3>&1`, `2>&1`, `exec 3>file`
+- **FD closing** - `<&-`, `>&-`
+- **Read from specific FD** - `read <&3`
+
+*Priority: VERY LOW* - Advanced feature, rarely used
+
+**Category 5: Special Variables**
+
+Additional shell variables (beyond `$?` from Phase 6):
+
+- `$$` - Current shell PID (low priority in browser context)
+- `$!` - Last background job PID (job control related)
+- `$-` - Current shell options (debugging aid)
+- `$0` - Script name (HIGH priority, goes with `$1, $2, ...`)
+
+**Category 6: Miscellaneous**
+
+- **`IFS`** - Internal Field Separator for word splitting
+  ```sh
+  IFS=: read user pass uid gid <<< "$line"
+  ```
+  *Priority: LOW* - Can parse with other tools
+
+- **Tilde expansion** - `~/file` → `/home/user/file`
+  ```sh
+  cd ~/Documents
+  ```
+  *Priority: MEDIUM* - Already partially supported via `cd ~`
+
+- **`CDPATH`** - Search path for cd command
+  ```sh
+  CDPATH=/home/user:/projects
+  cd myproject  # Searches both paths
+  ```
+  *Priority: VERY LOW* - Rarely used
+
+#### Realistic Compatibility Targets
+
+**Phase 6, 8, & 10: "Core POSIX Scripting" (~80% compliant)**
+- Variables, conditionals, loops, functions, exit codes
+- `&&`, `||`, command substitution, heredocs
+- **Can run:** Simple automation scripts, build scripts, installers
+- **Cannot run:** Scripts with user input, argument parsing, pattern matching
+
+**Phase 6, 8, & 10 Extended: "Practical POSIX" (~90% compliant)**
+Add to Phase 6, 8, & 10:
+- `read` command
+- `. / source` command
+- Positional parameters (`$0-$9`, `$@`, `$#`)
+- Glob expansion (`*.txt`)
+- `case` statements
+- Basic parameter expansion (`${var:-default}`)
+- `export` builtin
+- `set -e/-u/-x` options
+- Arithmetic expansion (`$((expr))`)
+- `shift` command
+
+**Can run:** 90%+ of real-world shell scripts including:
+- Configuration scripts
+- Installation scripts
+- Build automation
+- System administration scripts
+- Most GitHub repo scripts
+
+**Phase 6, 8, & 10++ Complete: "Full POSIX" (~98% compliant)**
+Add everything above plus:
+- `eval`, `trap`, `readonly`, `unset`
+- Advanced parameter expansion
+- File descriptor manipulation
+- `getopts` builtin
+
+**Can run:** Virtually all POSIX shell scripts except those requiring:
+- Job control (background jobs, fg/bg)
+- Platform-specific features
+- External commands we don't implement
+
+#### Recommended Approach
+
+**Immediate (Phases 6, 8, & 10):** Focus on core scripting - gets us to Thompson Shell → Bourne Shell → dash level
+
+**Phase 8 Extended (if scope allows):** Add the "Practical POSIX" features above - maximum impact for effort
+
+**Future (Phase 12+):** Add remaining POSIX features based on user demand and real-world script compatibility needs
+
+**Skip indefinitely:** Job control (not useful in browser context), exotic FD manipulation, rarely-used builtins
+
+#### Impact Assessment
+
+With just Phase 6, 8, & 10 (core scripting):
+- ✅ Can automate tasks with scripts
+- ✅ Can build complex workflows
+- ✅ Can write functions and libraries
+- ❌ Cannot easily accept user input
+- ❌ Cannot parse script arguments properly
+- ❌ Cannot match file patterns in scripts
+- ❌ Cannot source config files
+
+With "Practical POSIX" (Phase 8 Extended):
+- ✅ Can run most GitHub repo install scripts
+- ✅ Can write interactive configuration tools
+- ✅ Can build reusable script libraries
+- ✅ Can match files with wildcards
+- ✅ Can handle script arguments properly
+- ✅ Can do arithmetic in loops
+- Estimated: **90% of real-world scripts would work**
+
+This study provides a roadmap for future shell development beyond the initial POSIX sh target. Features should be prioritized based on actual user needs and script compatibility requirements.
+
+---
+
+### 🔮 Phase 6: Parser Refactoring & Exit Codes
+**Goal:** Refactor shell architecture to support variables, conditionals, and loops
+
+> **📖 Detailed documentation:** [docs/development_notes/phase6-parser-refactor/](../docs/development_notes/phase6-parser-refactor/OVERVIEW.md)
+
+**Why This Phase:**
+After completing Phase 5.6 (pipes and redirection), we've reached Thompson Shell (1971) functionality. Before adding shell programming features (variables, conditionals, loops), we need to refactor the parser architecture and add exit code infrastructure. The current string-based parser works well for single-line commands but won't scale to multi-line constructs.
+
+**Planned:**
+
+**Parser Architecture:**
+- [ ] Extract Lexer class (tokenization with token types)
+- [ ] Extract Parser class (AST generation)
+- [ ] Extract Executor class (AST interpretation)
+- [ ] Multi-line input buffering (for if/while/for blocks)
+- [ ] Continuation prompt (`>`) for block input
+
+**Exit Code Infrastructure:**
+- [ ] Add `lastExitCode` tracking to Shell class
+- [ ] Update all 44 commands to return exit codes (0 = success)
+- [ ] Special variable `$?` for last exit code
+- [ ] Exit code propagation through pipelines
+
+**Test Command (`[` builtin):**
+- [ ] File tests: `-f` (file), `-d` (directory), `-e` (exists)
+- [ ] String tests: `=`, `!=`, `-z` (empty), `-n` (not empty)
+- [ ] Numeric tests: `-eq`, `-ne`, `-lt`, `-le`, `-gt`, `-ge`
+- [ ] Returns 0 (true) or 1 (false) as exit code
+- [ ] Alias `[` to `test` command
+
+**Variable Foundation:**
+- [ ] VariableScope class for variable storage
+- [ ] Variable assignment detection (`NAME=value`)
+- [ ] Variable expansion in strings (`$VAR`, `${VAR}`)
+- [ ] Quote handling for expansion (`"$VAR"` vs `'$VAR'`)
+
+**Additional Commands:**
+- [ ] `true` - Always returns 0
+- [ ] `false` - Always returns 1
+- [ ] `export` - Mark variables for child processes
+- [ ] `sleep` - Wait for N seconds
+
+**Testing Infrastructure:**
+- [ ] Web Test Runner setup for integration tests
+- [ ] uvu setup for unit tests
+- [ ] 45+ test cases for parser, commands, VFS
+- [ ] GitHub Actions CI/CD pipeline
+- [ ] Coverage reporting (target: 60%)
+
+**Timeline:**
+- Week 1-2: Parser refactoring (Lexer, Parser, Executor extraction)
+- Week 3: Exit codes + test command
+- Week 4: Variables (assignment, expansion)
+- Week 5-6: Testing infrastructure and coverage
+
+**Deliverables:**
+- Clean separation: Lexer → Parser → Executor
+- All commands return exit codes
+- `test`/`[` command working
+- Basic variable assignment and expansion
+- 60%+ test coverage
+- Foundation ready for conditionals/loops
+
+**Success Criteria:**
+```bash
+# Exit codes work
+ls ; echo $?                    # → 0
+ls /nonexistent ; echo $?       # → 1
+
+# Test command works
+[ -f /home/test.txt ] ; echo $? # → 0 if exists, 1 if not
+[ 5 -lt 10 ] ; echo $?          # → 0 (true)
+
+# Variables work
+NAME=Koma
+echo "Hello $NAME"              # → Hello Koma
+echo $?                         # → 0
+```
+
+---
+
+### 🔮 Phase 7: Package Management (Spinifex)
 **Goal:** Fetch npm modules from ESM CDNs
 
 **Planned:**
@@ -436,10 +1024,37 @@ Browser-resident automation workstation that emulates a single-user Unix termina
 
 ---
 
-### 🔮 Phase 7: Koma Registry & Interactive Scripts
-**Goal:** Official package registry and terminal API for interactive programs
+### 🔮 Phase 8: Shell Scripting & Interactive Programs
+**Goal:** Add shell programming constructs and terminal API for full scripting capability
 
 **Planned:**
+
+**Shell Programming (POSIX sh Features):**
+- [ ] **Variables:**
+  - `NAME=value` - Variable assignment
+  - `$NAME` and `${NAME}` - Variable expansion
+  - `export NAME` - Environment variables
+  - Special variables: `$?` (exit code), `$#` (arg count), `$@` (all args)
+- [ ] **Exit Codes:**
+  - Commands return 0 (success) or non-zero (failure)
+  - `$?` captures last command's exit code
+  - `exit N` command to exit with code
+- [ ] **Test Command (`[` builtin):**
+  - File tests: `[ -f file ]`, `[ -d dir ]`, `[ -e path ]`
+  - String tests: `[ "$a" = "$b" ]`, `[ -z "$str" ]`, `[ -n "$str" ]`
+  - Numeric tests: `[ "$a" -eq "$b" ]`, `[ "$a" -gt "$b" ]`
+- [ ] **Conditionals:**
+  - `if [ condition ]; then ... fi`
+  - `if ... then ... else ... fi`
+  - `if ... then ... elif ... else ... fi`
+- [ ] **Loops:**
+  - `for var in list; do ... done`
+  - `while [ condition ]; do ... done`
+  - `break` and `continue`
+- [ ] **Functions:**
+  - `name() { commands; }`
+  - Local variables
+  - Return values
 
 **Koma Registry (`koma install`):**
 - [ ] GitHub-based package registry (koma-registry repo)
@@ -486,7 +1101,7 @@ Browser-resident automation workstation that emulates a single-user Unix termina
 
 ---
 
-### 🔮 Phase 8: Python Integration (Pyodide)
+### 🔮 Phase 9: Python Integration (Pyodide)
 **Goal:** Run Python scripts alongside JavaScript
 
 **Planned:**
@@ -519,10 +1134,21 @@ Browser-resident automation workstation that emulates a single-user Unix termina
 
 ---
 
-### 🔮 Phase 9: Security & Secrets
-**Goal:** Keyring for credentials
+### 🔮 Phase 10: Advanced Shell Features & Security
+**Goal:** Shell enhancements and credential management
 
 **Planned:**
+
+**Shell Parser Enhancements:**
+- [ ] Heredoc support (`<< EOF`)
+  - Multi-line input for commands
+  - Quoted vs unquoted delimiters
+  - Useful for creating files without external editor
+- [ ] Command substitution (`$(cmd)`)
+- [ ] Escape sequences in strings
+- [ ] Logical operators (`&&`, `||`) for exit code chaining
+
+**Security & Secrets:**
 - [ ] Web Crypto for encryption
 - [ ] Keyring module:
   - `keyring set <key>` - Store secret
@@ -535,7 +1161,7 @@ Browser-resident automation workstation that emulates a single-user Unix termina
 
 ---
 
-### 🔮 Phase 10: PWA & Offline
+### 🔮 Phase 11: PWA & Offline
 **Goal:** Install as PWA, work offline
 
 **Planned:**
@@ -547,7 +1173,7 @@ Browser-resident automation workstation that emulates a single-user Unix termina
 
 ---
 
-### 🔮 Phase 11: Advanced Features
+### 🔮 Phase 12: Advanced Features
 **Goal:** Nice-to-haves
 
 **Planned:**
@@ -557,31 +1183,42 @@ Browser-resident automation workstation that emulates a single-user Unix termina
 - [ ] Theme switcher (`theme solarized`, `theme terminal-green`)
 - [ ] `ed` line editor (because ed is the standard text editor)
 - [ ] Shell scripting (bash-like syntax?)
-- [ ] Persistent shell configuration (`~/.komarc`)
 
 ---
 
 ## Current Status
 
-**We are here:** ✅ Phase 5.5 complete (System Updates), ready to start Phase 6 (Spinifex Package Manager)
+**We are here:** ✅ Phase 5.6 complete (Pipes and Redirection) - ready to start Phase 6 (Parser Refactoring & Exit Codes)
 
 **What works right now:**
 - Beautiful terminal with industrial aesthetic
 - Multi-tab shell sessions with persistence
 - Command history and tmux-style command mode (Ctrl+K)
+- **Full Unix-like shell with pipes and redirection:**
+  - Pipeline operator: `cmd1 | cmd2 | cmd3`
+  - Output redirection: `cmd > file`, `cmd >> file`
+  - Input redirection: `cmd < file`
+  - Command separator: `cmd1 ; cmd2 ; cmd3`
+  - 44 commands with full argparse support
+  - One-liners and complex compositions work seamlessly
 - **Quote-aware shell parser** - Handles `"quoted strings"` properly
 - **Olivine kernel** (stable, modular, never randomly dies)
   - VFS backed by IndexedDB
   - Full process execution with AsyncFunction
   - Cron scheduler with expression parsing
   - Standard library with dynamic imports
-- **Working VFS commands:** `ls`, `cat`, `mkdir`, `touch`, `rm`, `cp`, `mv`, `cd`
+- **Working VFS commands:** `ls`, `cat`, `mkdir`, `touch`, `rm`, `cp`, `mv`, `cd`, `find`, `grep`, `sort`, `uniq`, `tee`, `head`, `tail`, `wc`, `tree`, `stat`
   - All commands support `--help` flag with schema-based help
-  - 16 commands migrated to argparse for consistent UX
+  - All commands work in pipelines with proper stdin/stdout
+  - Context-aware output (colors/formatting adapt to pipes)
 - **Process execution commands:**
   - `run <script> [args...]` - Execute JavaScript files
+  - `sh <script>` - Execute shell scripts (automation!)
   - `ps` - List processes with color-coded status
   - `kill <pid>` - Terminate processes
+- **Network commands:**
+  - `wget <url>` - Download files from HTTP/HTTPS URLs
+  - Works with public APIs and CORS-enabled resources
 - **Cron scheduling:**
   - `cron "<schedule>" <script>` - Schedule periodic jobs
   - `cronlist` - List scheduled jobs
@@ -594,8 +1231,8 @@ Browser-resident automation workstation that emulates a single-user Unix termina
   - Version tracking in `/etc/koma-version`
   - Safe system file updates without data loss
 - **Man pages system:**
-  - `man <command>` - 37 manual pages (31 commands + 5 stdlib APIs)
-  - Section 1: User commands (filesystem, shell)
+  - `man <command>` - **44 manual pages** (38 commands + 6 stdlib APIs)
+  - Section 1: User commands (filesystem, shell, process, network)
   - Section 3: Library APIs (fs, http, notify, path, argparse)
   - Organized in subfolders (filesystem/, shell/, stdlib/)
   - Markdown sources in `docs/man/` (maintainable, git-friendly)
@@ -621,11 +1258,18 @@ Browser-resident automation workstation that emulates a single-user Unix termina
 - Real-time stdout/stderr streaming from processes
 
 **Next steps:**
-1. Package management with Spinifex (Phase 6)
+1. Parser Refactoring & Exit Codes (Phase 6)
+   - Extract Lexer, Parser, Executor classes
+   - Add exit code infrastructure to all commands
+   - Implement `test`/`[` command for conditionals
+   - Basic variable assignment and expansion
+   - Testing infrastructure (Web Test Runner + uvu)
+2. Package management with Spinifex (Phase 7)
    - `spinifex install` for npm packages via CDN
    - Import map manipulation
    - Package caching in VFS
-2. Koma Registry (Phase 7)
+3. Shell Programming Features (Phase 8)
+   - Variables, conditionals, loops, functions
    - `koma install` for official packages
    - Terminal API for interactive scripts
    - Games and tools ecosystem
@@ -741,4 +1385,4 @@ koma/
 
 ---
 
-**Last Updated:** 2025-11-10 (Phase 5.5 complete - System update commands implemented, ready for Phase 6: Spinifex)
+**Last Updated:** 2025-11-10 (Phase 5.6 complete - Pipes, redirection, semicolon separator, shell scripts, and wget implemented. 44 man pages total. Added POSIX Compliance Study documenting path to 90%+ script compatibility. Reorganized roadmap with new Phase 6: Parser Refactoring & Exit Codes as foundation for shell programming. Ready to begin Phase 6!)

@@ -202,7 +202,10 @@ export function registerShellCommands(shell, tabManager = null) {
   });
 
   // Echo command
-  shell.registerCommand('echo', (args, shell) => {
+  shell.registerCommand('echo', async (args, shell, context) => {
+    const { createTerminalContext } = await import('../utils/command-context.js');
+    const ctx = context || createTerminalContext(shell.term);
+
     if (hasHelpFlag(args)) {
       shell.term.writeln('Usage: echo [text...]');
       shell.term.writeln('');
@@ -213,7 +216,7 @@ export function registerShellCommands(shell, tabManager = null) {
       shell.term.writeln('  echo test             Print "test"');
       return;
     }
-    shell.term.writeln(args.join(' '));
+    ctx.writeln(args.join(' '));
   }, {
     description: 'Display text to output',
     category: 'shell'
@@ -309,6 +312,185 @@ export function registerShellCommands(shell, tabManager = null) {
     }
   }, {
     description: 'Restart Olivine kernel',
+    category: 'shell'
+  });
+
+  // Sh - execute shell script
+  shell.registerCommand('sh', async (args, shell) => {
+    const schema = {
+      description: 'Execute a shell script file',
+      positional: { description: '<script>' },
+      flags: {
+        verbose: { short: 'v', description: 'Show each command before executing' }
+      },
+      examples: [
+        { command: 'sh setup.sh', description: 'Execute setup.sh script' },
+        { command: 'sh -v build.sh', description: 'Execute with verbose output' }
+      ],
+      notes: [
+        'Shell scripts are text files with commands (one per line)',
+        'Lines starting with # are comments and are ignored',
+        'Empty lines are skipped',
+        'Each command is executed as if typed in the shell',
+        'Supports pipes, redirects, and all built-in commands'
+      ]
+    };
+
+    if (argparse.showHelp('sh', args, schema, shell.term)) return;
+
+    const parsed = argparse.parse(args, schema);
+
+    if (parsed.positional.length === 0) {
+      showError(shell.term, 'sh', 'missing script file');
+      return;
+    }
+
+    try {
+      const kernel = await kernelClient.getKernel();
+      const scriptPath = resolvePath(parsed.positional[0], shell.cwd);
+      const content = await kernel.readFile(scriptPath);
+
+      // Split into lines and filter
+      const lines = content.split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0 && !line.startsWith('#'));
+
+      if (lines.length === 0) {
+        showInfo(shell.term, '', 'Script is empty or contains only comments');
+        return;
+      }
+
+      // Execute each line
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+
+        if (parsed.flags.verbose) {
+          shell.term.writeln(`\x1b[2m+ ${line}\x1b[0m`);
+        }
+
+        try {
+          await shell.execute(line);
+        } catch (error) {
+          showError(shell.term, 'sh', `line ${i + 1}: ${error.message}`);
+          // Continue executing remaining lines
+        }
+      }
+
+      if (parsed.flags.verbose) {
+        showSuccess(shell.term, '', `Executed ${lines.length} commands`);
+      }
+    } catch (error) {
+      showError(shell.term, 'sh', error.message);
+    }
+  }, {
+    description: 'Execute shell script file',
+    category: 'shell'
+  });
+
+  // Wget - download files from URLs
+  shell.registerCommand('wget', async (args, shell) => {
+    const schema = {
+      description: 'Download files from URLs',
+      positional: { description: '<url>' },
+      options: {
+        output: { short: 'O', description: 'Output filename' }
+      },
+      flags: {
+        quiet: { short: 'q', description: 'Quiet mode (no progress output)' }
+      },
+      examples: [
+        { command: 'wget https://example.com/data.json', description: 'Download to current directory' },
+        { command: 'wget https://example.com/file.txt -O myfile.txt', description: 'Save with custom name' },
+        { command: 'wget -q https://api.github.com/users/octocat', description: 'Quiet download' }
+      ],
+      notes: [
+        'Downloads files from HTTP/HTTPS URLs',
+        'Automatically extracts filename from URL if -O not specified',
+        'Saves to current working directory',
+        'Supports JSON, text, and other text-based formats'
+      ]
+    };
+
+    if (argparse.showHelp('wget', args, schema, shell.term)) return;
+
+    const parsed = argparse.parse(args, schema);
+
+    if (parsed.positional.length === 0) {
+      showError(shell.term, 'wget', 'missing URL');
+      return;
+    }
+
+    const url = parsed.positional[0];
+
+    // Validate URL
+    try {
+      new URL(url);
+    } catch (error) {
+      showError(shell.term, 'wget', `invalid URL: ${url}`);
+      return;
+    }
+
+    // Determine output filename
+    let filename = parsed.options.output;
+    if (!filename) {
+      // Extract filename from URL
+      try {
+        const urlObj = new URL(url);
+        const pathname = urlObj.pathname;
+        filename = pathname.split('/').pop() || 'index.html';
+
+        // If no filename in path, use domain
+        if (!filename || filename === '') {
+          filename = urlObj.hostname.replace(/\./g, '_') + '.txt';
+        }
+      } catch (error) {
+        filename = 'downloaded_file.txt';
+      }
+    }
+
+    const outputPath = resolvePath(filename, shell.cwd);
+
+    try {
+      if (!parsed.flags.quiet) {
+        shell.term.writeln(`Downloading ${url}...`);
+      }
+
+      // Fetch the URL
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        showError(shell.term, 'wget', `HTTP ${response.status}: ${response.statusText}`);
+        return;
+      }
+
+      // Get content type
+      const contentType = response.headers.get('content-type') || '';
+
+      // Read response as text
+      const content = await response.text();
+
+      // Save to VFS
+      const kernel = await kernelClient.getKernel();
+      await kernel.writeFile(outputPath, content);
+
+      if (!parsed.flags.quiet) {
+        const size = content.length;
+        const sizeStr = size > 1024
+          ? `${(size / 1024).toFixed(2)} KB`
+          : `${size} bytes`;
+
+        showSuccess(shell.term, '', `Saved to ${filename} (${sizeStr})`);
+
+        if (contentType) {
+          shell.term.writeln(`Content-Type: ${contentType}`);
+        }
+      }
+    } catch (error) {
+      showError(shell.term, 'wget', error.message);
+      console.error('[wget]', error);
+    }
+  }, {
+    description: 'Download files from URLs',
     category: 'shell'
   });
 
