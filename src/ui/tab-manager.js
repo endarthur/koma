@@ -7,17 +7,22 @@ import { Terminal } from 'xterm';
 import { FitAddon } from 'xterm-addon-fit';
 import { WebLinksAddon } from 'xterm-addon-web-links';
 import { Shell } from '../shell.js';
-import { registerBuiltins } from '../commands.js';
+import { registerBuiltins } from '../commands/index.js';
 
 const STORAGE_KEY = 'koma:tabs';
 
 export class TabManager {
-  constructor(terminalConfig) {
+  constructor(terminalConfig, editor = null) {
     this.terminalConfig = terminalConfig;
+    this.editor = editor;
     this.tabs = new Map();
     this.activeTabId = null;
     this.nextTabId = 1;
     this.commandMode = false;
+
+    // Tab completion state
+    this.lastTabCompletionTime = 0;
+    this.tabCompletionDebounce = 150; // ms
 
     // DOM elements
     this.tabsContainer = document.querySelector('.tabs');
@@ -26,6 +31,9 @@ export class TabManager {
 
     // Bind event handlers
     this.setupEventHandlers();
+
+    // Set up terminal copy/paste
+    this.setupCopyPaste();
 
     // Load persisted tabs or create first tab
     this.loadTabs();
@@ -51,7 +59,7 @@ export class TabManager {
 
     // Create shell instance
     const shell = new Shell(term);
-    registerBuiltins(shell, this);
+    registerBuiltins(shell, this, this.editor);
 
     // Restore state if provided
     if (restoreState) {
@@ -78,6 +86,7 @@ export class TabManager {
       fitAddon,
       shell,
       currentLine: '',
+      cursorPos: 0, // Position within currentLine
       inputHandler: null,
     });
 
@@ -229,6 +238,15 @@ export class TabManager {
         return;
       }
 
+      // Handle F2 - Toggle to editor (F2 sends escape sequence \x1bOQ)
+      if (data === '\x1bOQ' || data === '\x1b[12~') {
+        // Only toggle to editor if terminal is visible and file is open
+        if (this.editor && this.editor.currentFile && this.editor.editorViewEl.hidden) {
+          this.editor.showEditor();
+        }
+        return;
+      }
+
       // Handle command mode single-key commands
       if (this.commandMode) {
         switch (data) {
@@ -279,6 +297,7 @@ export class TabManager {
           tab.shell.writePrompt();
           tab.terminal.write(prev);
           tab.currentLine = prev;
+          tab.cursorPos = prev.length;
         }
         return;
       } else if (data === '\x1b[B') { // Down arrow
@@ -288,7 +307,50 @@ export class TabManager {
           tab.shell.writePrompt();
           tab.terminal.write(next);
           tab.currentLine = next;
+          tab.cursorPos = next.length;
         }
+        return;
+      } else if (data === '\x1b[C') { // Right arrow
+        if (tab.cursorPos < tab.currentLine.length) {
+          tab.cursorPos++;
+          tab.terminal.write('\x1b[C'); // Move cursor right
+        }
+        return;
+      } else if (data === '\x1b[D') { // Left arrow
+        if (tab.cursorPos > 0) {
+          tab.cursorPos--;
+          tab.terminal.write('\x1b[D'); // Move cursor left
+        }
+        return;
+      } else if (data === '\x1b[H' || data === '\x1b[1~') { // Home
+        if (tab.cursorPos > 0) {
+          // Move cursor to beginning of line
+          tab.terminal.write(`\x1b[${tab.cursorPos}D`);
+          tab.cursorPos = 0;
+        }
+        return;
+      } else if (data === '\x1b[F' || data === '\x1b[4~') { // End
+        if (tab.cursorPos < tab.currentLine.length) {
+          const distance = tab.currentLine.length - tab.cursorPos;
+          tab.terminal.write(`\x1b[${distance}C`);
+          tab.cursorPos = tab.currentLine.length;
+        }
+        return;
+      } else if (data === '\x1b[3~') { // Delete key
+        if (tab.cursorPos < tab.currentLine.length) {
+          // Delete character at cursor
+          tab.currentLine = tab.currentLine.slice(0, tab.cursorPos) +
+                           tab.currentLine.slice(tab.cursorPos + 1);
+          // Redraw from cursor to end
+          const rest = tab.currentLine.slice(tab.cursorPos);
+          tab.terminal.write(rest + ' \x1b[' + (rest.length + 1) + 'D');
+        }
+        return;
+      }
+
+      // Handle Tab - Tab completion
+      if (code === 9) { // Tab
+        this.handleTabCompletion(tab);
         return;
       }
 
@@ -296,31 +358,68 @@ export class TabManager {
       if (code === 13) { // Enter
         tab.terminal.write('\r\n');
         if (tab.currentLine.trim()) {
-          tab.shell.execute(tab.currentLine.trim()).then(() => {
-            tab.shell.writePrompt();
-            this.updateStatusBar();
-          });
+          tab.shell.execute(tab.currentLine.trim())
+            .catch(error => {
+              // This should never happen since execute() has its own try/catch,
+              // but we handle it just in case to prevent terminal lockup
+              tab.terminal.writeln(`\x1b[31mUnexpected error: ${error.message}\x1b[0m`);
+              console.error('Unhandled error in command execution:', error);
+            })
+            .finally(() => {
+              // Always write prompt, even if there was an error
+              tab.shell.writePrompt();
+              this.updateStatusBar();
+              // Save tabs to persist command history
+              try {
+                this.saveTabs();
+              } catch (error) {
+                console.error('[Koma] Failed to save tabs:', error);
+              }
+            });
         } else {
           tab.shell.writePrompt();
         }
         tab.currentLine = '';
+        tab.cursorPos = 0;
       } else if (code === 127) { // Backspace
-        if (tab.currentLine.length > 0) {
-          tab.currentLine = tab.currentLine.slice(0, -1);
-          tab.terminal.write('\b \b');
+        if (tab.cursorPos > 0) {
+          // Delete character before cursor
+          tab.currentLine = tab.currentLine.slice(0, tab.cursorPos - 1) +
+                           tab.currentLine.slice(tab.cursorPos);
+          tab.cursorPos--;
+          // Redraw from cursor to end
+          const rest = tab.currentLine.slice(tab.cursorPos);
+          tab.terminal.write('\b' + rest + ' \x1b[' + (rest.length + 1) + 'D');
         }
       } else if (code === 3) { // Ctrl+C
         tab.terminal.write('^C\r\n');
         tab.currentLine = '';
+        tab.cursorPos = 0;
         tab.shell.writePrompt();
       } else if (code === 12) { // Ctrl+L
         // Clear screen and move cursor to home using ANSI escape codes
         tab.terminal.write('\x1b[2J\x1b[H');
         tab.shell.writePrompt();
         tab.terminal.write(tab.currentLine);
+        // Move cursor to correct position
+        if (tab.cursorPos < tab.currentLine.length) {
+          const distance = tab.currentLine.length - tab.cursorPos;
+          tab.terminal.write(`\x1b[${distance}D`);
+        }
       } else if (code >= 32 && code <= 126) { // Printable characters
-        tab.currentLine += data;
-        tab.terminal.write(data);
+        // Insert character at cursor position
+        tab.currentLine = tab.currentLine.slice(0, tab.cursorPos) +
+                         data +
+                         tab.currentLine.slice(tab.cursorPos);
+        tab.cursorPos++;
+        // Redraw from cursor to end
+        const rest = tab.currentLine.slice(tab.cursorPos - 1);
+        tab.terminal.write(rest);
+        // Move cursor back to correct position
+        if (tab.cursorPos < tab.currentLine.length) {
+          const distance = tab.currentLine.length - tab.cursorPos;
+          tab.terminal.write(`\x1b[${distance}D`);
+        }
       }
     });
   }
@@ -348,6 +447,163 @@ export class TabManager {
         hintsElement.style.color = 'var(--text-tertiary)';
       }
     }
+  }
+
+  /**
+   * Handle tab completion
+   */
+  async handleTabCompletion(tab) {
+    // Debounce to prevent VFS spam
+    const now = Date.now();
+    if (now - this.lastTabCompletionTime < this.tabCompletionDebounce) {
+      return;
+    }
+    this.lastTabCompletionTime = now;
+
+    const line = tab.currentLine;
+    const cursorPos = tab.cursorPos;
+
+    // Get the word being completed (from last space to cursor)
+    const beforeCursor = line.slice(0, cursorPos);
+    const lastSpaceIndex = beforeCursor.lastIndexOf(' ');
+    const wordStart = lastSpaceIndex + 1;
+    const word = beforeCursor.slice(wordStart);
+
+    // Determine if we're completing a command or a path
+    const isCommand = wordStart === 0;
+
+    let matches = [];
+
+    if (isCommand) {
+      // Complete command names
+      const commands = Array.from(tab.shell.commands.keys());
+      matches = commands.filter(cmd => cmd.startsWith(word)).sort();
+    } else {
+      // Complete file/directory paths
+      matches = await this.getPathCompletions(tab.shell, word);
+    }
+
+    if (matches.length === 0) {
+      // No matches, do nothing
+      return;
+    } else if (matches.length === 1) {
+      // Single match - auto-complete
+      const completion = matches[0];
+      const toInsert = completion.slice(word.length);
+
+      // Insert completion
+      tab.currentLine = line.slice(0, cursorPos) + toInsert + line.slice(cursorPos);
+      tab.terminal.write(toInsert);
+      tab.cursorPos += toInsert.length;
+
+      // Move cursor back if needed
+      if (cursorPos < line.length) {
+        const distance = line.length - cursorPos;
+        tab.terminal.write(`\x1b[${distance}D`);
+      }
+    } else {
+      // Multiple matches - show them
+      tab.terminal.write('\r\n');
+      const maxLength = Math.max(...matches.map(m => m.length));
+      const columns = Math.floor(tab.terminal.cols / (maxLength + 2));
+
+      for (let i = 0; i < matches.length; i++) {
+        const match = matches[i].padEnd(maxLength + 2);
+        tab.terminal.write(match);
+
+        if ((i + 1) % columns === 0 && i < matches.length - 1) {
+          tab.terminal.write('\r\n');
+        }
+      }
+
+      // Redraw prompt and current line
+      tab.terminal.write('\r\n');
+      tab.shell.writePrompt();
+      tab.terminal.write(tab.currentLine);
+
+      // Move cursor to correct position
+      if (tab.cursorPos < tab.currentLine.length) {
+        const distance = tab.currentLine.length - tab.cursorPos;
+        tab.terminal.write(`\x1b[${distance}D`);
+      }
+    }
+  }
+
+  /**
+   * Normalize a path by resolving . and .. segments
+   */
+  normalizePath(path) {
+    const parts = path.split('/').filter(p => p && p !== '.');
+    const normalized = [];
+
+    for (const part of parts) {
+      if (part === '..') {
+        if (normalized.length > 0) {
+          normalized.pop();
+        }
+      } else {
+        normalized.push(part);
+      }
+    }
+
+    return normalized.length === 0 ? '/' : '/' + normalized.join('/');
+  }
+
+  /**
+   * Get path completions from VFS
+   */
+  async getPathCompletions(shell, word) {
+    try {
+      const kernel = await this.getKernel();
+
+      // Determine directory to search and prefix to match
+      let searchDir, prefix;
+
+      if (word.includes('/')) {
+        // Has path separator
+        const lastSlash = word.lastIndexOf('/');
+        const dirPart = word.slice(0, lastSlash + 1);
+        prefix = word.slice(lastSlash + 1);
+
+        // Resolve directory path
+        if (dirPart.startsWith('/')) {
+          // Absolute path
+          searchDir = this.normalizePath(dirPart);
+        } else {
+          // Relative path - join with cwd and normalize
+          const joined = shell.cwd === '/' ? `/${dirPart}` : `${shell.cwd}/${dirPart}`;
+          searchDir = this.normalizePath(joined);
+        }
+      } else {
+        // No path separator - search current directory
+        searchDir = shell.cwd;
+        prefix = word;
+      }
+
+      // Read directory
+      const entries = await kernel.readdir(searchDir);
+      const matches = entries
+        .filter(entry => entry.name.startsWith(prefix))
+        .map(entry => {
+          const fullPath = word.slice(0, word.lastIndexOf('/') + 1) + entry.name;
+          // Add trailing slash for directories
+          return entry.type === 'directory' ? fullPath + '/' : fullPath;
+        })
+        .sort();
+
+      return matches;
+    } catch (error) {
+      // Directory doesn't exist or can't be read
+      return [];
+    }
+  }
+
+  /**
+   * Get kernel (helper to avoid importing kernelClient)
+   */
+  async getKernel() {
+    const { kernelClient } = await import('../kernel/client.js');
+    return await kernelClient.getKernel();
   }
 
   /**
@@ -379,6 +635,55 @@ export class TabManager {
       const tab = this.getActiveTab();
       if (tab) {
         tab.fitAddon.fit();
+      }
+    });
+  }
+
+  /**
+   * Set up copy/paste with right-click
+   */
+  setupCopyPaste() {
+    this.terminalContainer.addEventListener('contextmenu', async (e) => {
+      // Ctrl+right-click: show browser context menu
+      if (e.ctrlKey || e.metaKey) {
+        return; // Let browser handle it
+      }
+
+      e.preventDefault();
+
+      const tab = this.getActiveTab();
+      if (!tab) return;
+
+      const terminal = tab.terminal;
+
+      // Check if there's a selection
+      if (terminal.hasSelection()) {
+        // Copy selected text to clipboard
+        const selectedText = terminal.getSelection();
+        try {
+          await navigator.clipboard.writeText(selectedText);
+          console.log('[Koma] Copied to clipboard');
+        } catch (error) {
+          console.error('[Koma] Failed to copy to clipboard:', error);
+        }
+        // Clear selection after copy
+        terminal.clearSelection();
+      } else {
+        // Paste from clipboard
+        try {
+          const text = await navigator.clipboard.readText();
+          if (text) {
+            // Add to current line instead of writing directly
+            tab.currentLine = tab.currentLine.slice(0, tab.cursorPos) +
+                             text +
+                             tab.currentLine.slice(tab.cursorPos);
+            // Write the pasted text
+            terminal.write(text);
+            tab.cursorPos += text.length;
+          }
+        } catch (error) {
+          console.error('[Koma] Failed to paste from clipboard:', error);
+        }
       }
     });
   }

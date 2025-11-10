@@ -14,7 +14,10 @@
       "xterm": "https://esm.sh/xterm@5.3.0",
       "xterm-addon-fit": "https://esm.sh/xterm-addon-fit@0.8.0",
       "xterm-addon-web-links": "https://esm.sh/xterm-addon-web-links@0.9.0",
-      "comlink": "https://esm.sh/comlink@4.4.1"
+      "comlink": "https://esm.sh/comlink@4.4.1",
+      "@codemirror/state": "https://cdn.skypack.dev/@codemirror/state@6.4.0",
+      "@codemirror/view": "https://cdn.skypack.dev/@codemirror/view@6.23.0",
+      "@codemirror/commands": "https://cdn.skypack.dev/@codemirror/commands@6.3.3"
     }
   }
   </script>
@@ -36,6 +39,8 @@
           </div>
           <button class="new-tab" title="New tab">+</button>
         </div>
+        <div class="activity-led"></div>
+        <span class="editor-status"></span>
         <div class="system-info">koma v0.1</div>
       </div>
 
@@ -54,7 +59,7 @@
     <div id="editor-view" hidden>
       <div class="editor-header">
         <span class="filename"></span>
-        <span class="editor-hints">Cmd+` return to terminal | Cmd+S save | Esc close</span>
+        <span class="editor-hints">F2 or Ctrl+` toggle terminal | Ctrl+S save | Esc close</span>
       </div>
       <div id="codemirror-container"></div>
     </div>

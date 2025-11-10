@@ -2,6 +2,8 @@
  * Koma Shell - Command parsing and execution
  */
 
+import { commandRegistry } from './utils/command-registry.js';
+
 export class Shell {
   constructor(terminal) {
     this.term = terminal;
@@ -19,21 +21,74 @@ export class Shell {
 
   /**
    * Register a command handler
+   * @param {string} name - Command name
+   * @param {Function} handler - Command handler function
+   * @param {Object} [metadata] - Optional metadata for help system
+   * @param {string} [metadata.description] - Brief description
+   * @param {string} [metadata.category] - Category (filesystem, shell, process, etc.)
    */
-  registerCommand(name, handler) {
+  registerCommand(name, handler, metadata = null) {
     this.commands.set(name, handler);
+
+    // Register metadata if provided
+    if (metadata) {
+      commandRegistry.register(
+        name,
+        metadata.description || '',
+        metadata.category || 'other'
+      );
+    }
   }
 
   /**
    * Parse command line into command and arguments
+   *
+   * TODO (Phase 5): Improve parser to handle:
+   * - Quoted strings: echo "hello world" → single arg
+   * - Escape sequences: echo "hello\"world"
+   * - Variable expansion: echo $HOME
+   * - Pipes and redirection: cat file.txt | grep foo > output.txt
    */
   parseCommand(line) {
-    // Simple parsing - split on whitespace, handle quotes later
-    const parts = line.trim().split(/\s+/);
+    // Quote-aware parsing (handles single and double quotes)
+    const trimmed = line.trim();
+    const parts = [];
+    let current = '';
+    let inQuotes = false;
+    let quoteChar = null;
+
+    for (let i = 0; i < trimmed.length; i++) {
+      const char = trimmed[i];
+
+      if ((char === '"' || char === "'") && !inQuotes) {
+        // Start of quoted string
+        inQuotes = true;
+        quoteChar = char;
+      } else if (char === quoteChar && inQuotes) {
+        // End of quoted string
+        inQuotes = false;
+        quoteChar = null;
+      } else if (char === ' ' && !inQuotes) {
+        // Space outside quotes - end of argument
+        if (current) {
+          parts.push(current);
+          current = '';
+        }
+      } else {
+        // Regular character
+        current += char;
+      }
+    }
+
+    // Add last argument
+    if (current) {
+      parts.push(current);
+    }
+
     return {
-      command: parts[0],
+      command: parts[0] || '',
       args: parts.slice(1),
-      raw: line.trim(),
+      raw: trimmed,
     };
   }
 

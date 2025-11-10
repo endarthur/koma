@@ -73,8 +73,8 @@ html, body {
 /* Tab Bar */
 .tab-bar {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 12px;
   height: 32px;
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
@@ -252,4 +252,170 @@ html, body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-tertiary);
+}
+
+/* Modal System */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  animation: fadeIn 150ms ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal {
+  background: var(--bg-elevated);
+  border: 2px solid var(--accent-orange);
+  min-width: 400px;
+  max-width: 600px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  animation: slideIn 150ms ease;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.modal-header {
+  padding: 12px 16px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  font-weight: 500;
+  color: var(--accent-orange);
+}
+
+.modal-content {
+  padding: 20px 16px;
+  color: var(--text-primary);
+  line-height: 1.6;
+}
+
+.modal-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border);
+}
+
+.modal-button {
+  padding: 6px 16px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: var(--font-size);
+  transition: all var(--transition-fast);
+}
+
+.modal-button:hover {
+  background: var(--bg-elevated);
+  border-color: var(--text-tertiary);
+}
+
+.modal-button.primary {
+  background: var(--accent-orange);
+  border-color: var(--accent-orange);
+  color: var(--bg-primary);
+  font-weight: 500;
+}
+
+.modal-button.primary:hover {
+  background: #ff8555;
+  border-color: #ff8555;
+}
+
+/* Activity LED */
+.activity-led {
+  width: 3px;
+  height: 26px;
+  background: transparent;
+  border-radius: 1px;
+  transition: background-color 150ms ease;
+}
+
+.activity-led.reading {
+  background: var(--accent-green);
+  box-shadow: 0 0 6px var(--accent-green);
+  animation: pulse-green 1s ease-in-out infinite;
+}
+
+.activity-led.writing {
+  background: var(--accent-orange);
+  box-shadow: 0 0 6px var(--accent-orange);
+  animation: pulse-orange 1s ease-in-out infinite;
+}
+
+.activity-led.error {
+  background: var(--accent-orange);
+  box-shadow: 0 0 8px var(--accent-orange);
+  animation: flash-error 0.3s ease-in-out 3;
+}
+
+@keyframes pulse-green {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 6px var(--accent-green);
+  }
+  50% {
+    opacity: 0.4;
+    box-shadow: 0 0 2px var(--accent-green);
+  }
+}
+
+@keyframes pulse-orange {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 6px var(--accent-orange);
+  }
+  50% {
+    opacity: 0.4;
+    box-shadow: 0 0 2px var(--accent-orange);
+  }
+}
+
+@keyframes flash-error {
+  0%, 100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Editor Status Indicator (in tab bar) */
+.tab-bar .editor-status {
+  min-width: 180px;
+  font-size: 11px;
+  color: var(--accent-green);
+  text-align: left;
+  user-select: none;
+}
+
+.tab-bar .editor-status.inactive {
+  color: var(--text-tertiary);
+}
+
+.tab-bar .editor-status.dirty {
+  color: var(--accent-orange);
 }

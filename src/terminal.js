@@ -1,4 +1,11 @@
 import { TabManager } from './ui/tab-manager.js';
+import { Editor } from './ui/editor.js';
+import { kernelClient } from './kernel/client.js';
+
+// Start kernel initialization early
+kernelClient.ready.catch(err => {
+  console.error('[Koma] Kernel initialization failed:', err);
+});
 
 // Terminal configuration matching Koma aesthetic
 const terminalConfig = {
@@ -31,10 +38,23 @@ const terminalConfig = {
     brightWhite: '#ffffff',
   },
   allowProposedApi: true,
+  // Custom key event handler to allow F12 passthrough for dev tools
+  customKeyEventHandler: (e) => {
+    // Return false to prevent xterm from handling F12
+    // This allows the browser to handle it and open dev tools
+    if (e.key === 'F12') {
+      return false;
+    }
+    // Return true for all other keys to let xterm handle them
+    return true;
+  },
 };
 
+// Initialize editor first (needed by tab manager for vein command)
+const editor = new Editor();
+
 // Initialize tab manager
-const tabManager = new TabManager(terminalConfig);
+const tabManager = new TabManager(terminalConfig, editor);
 
 // Export for external use
-export { tabManager };
+export { tabManager, editor };
