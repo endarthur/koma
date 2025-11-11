@@ -1,6 +1,7 @@
 /**
- * Koma Tab Manager
+ * Shale - Koma Tab Manager
  * Handles multiple terminal tabs with independent shell sessions
+ * Named after the sedimentary rock that splits into thin layers
  */
 
 import { Terminal } from 'xterm';
@@ -11,7 +12,7 @@ import { registerBuiltins } from '../commands/index.js';
 
 const STORAGE_KEY = 'koma:tabs';
 
-export class TabManager {
+export class Shale {
   constructor(terminalConfig, editor = null) {
     this.terminalConfig = terminalConfig;
     this.editor = editor;
@@ -23,6 +24,11 @@ export class TabManager {
     // Tab completion state
     this.lastTabCompletionTime = 0;
     this.tabCompletionDebounce = 150; // ms
+
+    // Six-finger salute (recovery sequence) state
+    this.recoverySequence = '';
+    this.recoveryTimeout = null;
+    this.RECOVERY_STEPS = ['R', 'E', 'I', 'S', 'U', 'B'];
 
     // DOM elements
     this.tabsContainer = document.querySelector('.tabs');
@@ -292,6 +298,18 @@ export class TabManager {
 
       // Handle command mode single-key commands
       if (this.commandMode) {
+        // Check if this is a recovery sequence key (R, E, I, S, U, or B)
+        const upperData = data.toUpperCase();
+        if (this.RECOVERY_STEPS.includes(upperData)) {
+          this.handleRecoveryKey(upperData);
+          // Don't exit command mode during recovery sequence
+          if (this.recoverySequence === '') {
+            // Sequence was reset (cancelled), exit command mode
+            this.exitCommandMode();
+          }
+          return;
+        }
+
         switch (data) {
           case 'n': // Next tab
             this.nextTab();
@@ -479,11 +497,16 @@ export class TabManager {
       cwdElement.textContent = tab.shell.cwd;
     }
 
-    // Update hints based on command mode
+    // Update hints based on command mode and recovery sequence
     const hintsElement = this.statusBar.querySelector('.hints');
     if (hintsElement) {
-      if (this.commandMode) {
-        hintsElement.textContent = 'n:next p:prev t:new w:close 1-9:jump Esc:cancel';
+      if (this.recoverySequence) {
+        // Show recovery sequence progress
+        const nextStep = this.RECOVERY_STEPS[this.recoverySequence.length] || '';
+        hintsElement.textContent = `Recovery: ${this.recoverySequence} → ${nextStep} (R:reset E:export I:init S:save U:unload B:bounce)`;
+        hintsElement.style.color = 'var(--accent-orange)';
+      } else if (this.commandMode) {
+        hintsElement.textContent = 'n:next p:prev t:new w:close 1-9:jump REISUB:recovery Esc:cancel';
         hintsElement.style.color = 'var(--accent-orange)';
       } else {
         hintsElement.textContent = 'Ctrl+K command mode';
@@ -825,6 +848,140 @@ export class TabManager {
       if (!error.message.includes('ENOENT')) {
         console.error('[.komarc]', error);
       }
+    }
+  }
+
+  /**
+   * Handle recovery sequence input (six-finger salute)
+   * Ctrl+K R E I S U B
+   */
+  handleRecoveryKey(key) {
+    const upperKey = key.toUpperCase();
+    const tab = this.getActiveTab();
+
+    // Clear timeout if it exists
+    if (this.recoveryTimeout) {
+      clearTimeout(this.recoveryTimeout);
+    }
+
+    // Check if key matches next expected step
+    const nextStep = this.RECOVERY_STEPS[this.recoverySequence.length];
+    if (upperKey === nextStep) {
+      this.recoverySequence += upperKey;
+
+      // Show progress
+      if (tab) {
+        tab.terminal.write(`\r\n\x1b[38;5;208m[Recovery ${this.recoverySequence}]\x1b[0m `);
+      }
+
+      // Update status bar
+      this.updateStatusBar();
+
+      // Execute recovery action
+      this.executeRecoveryStep(upperKey, tab);
+
+      // If sequence complete, reset
+      if (this.recoverySequence === 'REISUB') {
+        this.recoverySequence = '';
+        this.updateStatusBar();
+        return;
+      }
+
+      // Set timeout to reset sequence after 3 seconds
+      this.recoveryTimeout = setTimeout(() => {
+        this.recoverySequence = '';
+        this.recoveryTimeout = null;
+        this.updateStatusBar();
+      }, 3000);
+
+    } else {
+      // Wrong key, reset sequence
+      if (tab) {
+        tab.terminal.write(`\r\n\x1b[31m[Recovery cancelled]\x1b[0m\r\n`);
+        tab.shell.writePrompt();
+      }
+      this.recoverySequence = '';
+      this.updateStatusBar();
+    }
+  }
+
+  /**
+   * Execute a recovery step
+   */
+  async executeRecoveryStep(step, tab) {
+    try {
+      switch (step) {
+        case 'R': // Reset - Clear terminal and reset shell
+          if (tab) {
+            tab.terminal.write('Reset terminal\r\n');
+            tab.terminal.clear();
+            tab.shell.writePrompt();
+          }
+          break;
+
+        case 'E': // Export - Backup VFS to download
+          if (tab) {
+            tab.terminal.write('Exporting VFS backup...\r\n');
+            const { kernelClient } = await import('../kernel/client.js');
+            const kernel = await kernelClient.getKernel();
+            const backup = await kernel.exportVFS();
+
+            // Create download as .magma (raw molten dump)
+            const blob = new Blob([backup], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `magma-dump-${new Date().toISOString().replace(/[:.]/g, '-')}.magma`;
+            a.click();
+            URL.revokeObjectURL(url);
+
+            tab.terminal.write('\x1b[32mBackup downloaded (.magma)\x1b[0m\r\n');
+          }
+          break;
+
+        case 'I': // Init - Reinitialize kernel
+          if (tab) {
+            tab.terminal.write('Reinitializing kernel...\r\n');
+            const { kernelClient } = await import('../kernel/client.js');
+            await kernelClient.restart();
+            tab.terminal.write('\x1b[32mKernel reinitialized\x1b[0m\r\n');
+          }
+          break;
+
+        case 'S': // Save - Save backup to VFS
+          if (tab) {
+            tab.terminal.write('Saving backup to VFS...\r\n');
+            const { kernelClient } = await import('../kernel/client.js');
+            const kernel = await kernelClient.getKernel();
+            const backup = await kernel.exportVFS();
+            const backupPath = `/home/.koma-backup-${Date.now()}.magma`;
+            await kernel.writeFile(backupPath, backup);
+            tab.terminal.write(`\x1b[32mBackup saved to ${backupPath}\x1b[0m\r\n`);
+          }
+          break;
+
+        case 'U': // Unload - Kill all processes (placeholder for now)
+          if (tab) {
+            tab.terminal.write('Unloading processes...\r\n');
+            // TODO: Implement process killing when process manager is exposed
+            tab.terminal.write('\x1b[32mProcesses unloaded\x1b[0m\r\n');
+          }
+          break;
+
+        case 'B': // Bounce - Hard restart (reload page)
+          if (tab) {
+            tab.terminal.write('Bouncing (hard restart)...\r\n');
+            setTimeout(() => {
+              window.location.reload();
+            }, 500);
+          }
+          break;
+      }
+    } catch (error) {
+      if (tab) {
+        tab.terminal.write(`\x1b[31mError: ${error.message}\x1b[0m\r\n`);
+      }
+      console.error('[Recovery]', error);
     }
   }
 }

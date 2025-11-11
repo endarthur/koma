@@ -236,7 +236,7 @@ class VFS {
       version,
       buildDate,
       updatedAt: new Date().toISOString(),
-      manPagesCount: 37 // Updated during Phase 5.5
+      manPagesCount: 53 // Updated with recovery.7.md and magma.1.md
     };
     await this.writeFile('/etc/koma-version', JSON.stringify(versionData, null, 2));
     console.log('[VFS] System version updated to', version);
@@ -641,6 +641,104 @@ class VFS {
 
     // Finally delete the directory itself (now empty)
     await this.unlink(path);
+  }
+
+  /**
+   * Export entire VFS as JSON (for backup)
+   * @returns {Promise<string>} JSON string of all filesystem entries
+   */
+  async exportVFS() {
+    await this.ready;
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db.transaction([STORE_NAME], 'readonly');
+      const store = transaction.objectStore(STORE_NAME);
+      const request = store.getAll();
+
+      request.onsuccess = () => {
+        const entries = request.result;
+        const backup = {
+          version: '1.0',
+          timestamp: new Date().toISOString(),
+          entries: entries
+        };
+        resolve(JSON.stringify(backup, null, 2));
+      };
+
+      request.onerror = () => reject(new Error('Failed to export VFS'));
+    });
+  }
+
+  /**
+   * Import VFS from JSON backup (destructive - replaces all data)
+   * @param {string} jsonData - JSON string from exportVFS
+   * @returns {Promise<void>}
+   */
+  async importVFS(jsonData) {
+    await this.ready;
+
+    return new Promise((resolve, reject) => {
+      let backup;
+
+      try {
+        backup = JSON.parse(jsonData);
+      } catch (error) {
+        reject(new Error('Invalid backup data: not valid JSON'));
+        return;
+      }
+
+      if (!backup.entries || !Array.isArray(backup.entries)) {
+        reject(new Error('Invalid backup data: missing entries array'));
+        return;
+      }
+
+      // Sort entries so directories come before files, and by path depth
+      const sortedEntries = backup.entries.slice().sort((a, b) => {
+        // Directories first
+        if (a.type === 'directory' && b.type !== 'directory') return -1;
+        if (a.type !== 'directory' && b.type === 'directory') return 1;
+        // Then by path depth (parent directories before children)
+        const aDepth = a.path.split('/').filter(p => p).length;
+        const bDepth = b.path.split('/').filter(p => p).length;
+        if (aDepth !== bDepth) return aDepth - bDepth;
+        // Finally alphabetically
+        return a.path.localeCompare(b.path);
+      });
+
+      const transaction = this.db.transaction([STORE_NAME], 'readwrite');
+      const store = transaction.objectStore(STORE_NAME);
+
+      // First, clear all existing data
+      const clearRequest = store.clear();
+
+      clearRequest.onsuccess = () => {
+        // Import all entries
+        let completed = 0;
+        const total = sortedEntries.length;
+
+        if (total === 0) {
+          resolve();
+          return;
+        }
+
+        for (const entry of sortedEntries) {
+          const putRequest = store.put(entry);
+
+          putRequest.onsuccess = () => {
+            completed++;
+            if (completed === total) {
+              resolve();
+            }
+          };
+
+          putRequest.onerror = () => {
+            reject(new Error(`Failed to import entry: ${entry.path}`));
+          };
+        }
+      };
+
+      clearRequest.onerror = () => reject(new Error('Failed to clear VFS'));
+    });
   }
 }
 
@@ -1235,6 +1333,10 @@ class KomaKernel {
   async move(srcPath, destPath) { return this.vfs.move(srcPath, destPath); }
   async unlinkRecursive(path) { return this.vfs.unlinkRecursive(path); }
 
+  // ========== Backup/Restore Methods ==========
+  async exportVFS() { return this.vfs.exportVFS(); }
+  async importVFS(jsonData) { return this.vfs.importVFS(jsonData); }
+
   // ========== Process Methods (Phase 5) ==========
   async spawn(script, args, env) {
     await this.ensureStdlibReady();
@@ -1291,7 +1393,7 @@ class KomaKernel {
       currentVersion: storedVersion ? storedVersion.version : 'not set',
       availableVersion: this.version,
       hasUpdate,
-      changes: hasUpdate ? ['Updated man pages (37 total)', 'System file improvements'] : []
+      changes: hasUpdate ? ['Updated man pages (53 total)', 'System file improvements'] : []
     };
   }
 

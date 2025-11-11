@@ -610,6 +610,563 @@ head -n 20 /home/script.js
 tail(1), cat(1), grep(1), wc(1)
 `,
 
+  'kmt.1.md': `# kmt(1) - Koma Magnetic Tape archive tool
+
+## NAME
+
+kmt - manipulate KMT archives (pack, unpack, list, info)
+
+## SYNOPSIS
+
+\`\`\`bash
+kmt <command> [options]
+
+kmt pack <source> <output.kmt> [options]
+kmt unpack <input.kmt> [dest-dir] [options]
+kmt list <input.kmt> [options]
+kmt info <input.kmt>
+\`\`\`
+
+## DESCRIPTION
+
+\`kmt\` is the Koma Magnetic Tape archive tool for creating, extracting, and inspecting KMT archives. KMT is a JSON-based archive format with optional gzip compression, checksums for integrity verification, and full metadata preservation.
+
+Unlike \`backup(1)\` and \`restore(1)\` which work with the entire VFS, \`kmt\` provides fine-grained control over specific files and directories, similar to Unix \`tar(1)\`.
+
+## COMMANDS
+
+### pack
+
+Create a KMT archive from a directory or file.
+
+\`\`\`bash
+kmt pack <source> <output.kmt> [options]
+\`\`\`
+
+**Options:**
+- \`-c, --compress\` - Force gzip compression
+- \`-C, --no-compress\` - Disable compression
+- \`-a, --absolute\` - Use absolute paths instead of relative
+- \`-l, --label TEXT\` - Set archive label (default: source basename)
+
+By default:
+- Compression is automatic (files larger than 1KB are compressed)
+- **Paths are relative** to the source directory for portability
+
+Use \`--absolute\` to store absolute paths like \`backup(1)\` does.
+
+**Examples:**
+\`\`\`bash
+kmt pack /home/projects myproject.kmt
+kmt pack /home/docs docs.kmt --label "Documentation backup"
+kmt pack /home --no-compress home.kmt
+\`\`\`
+
+### unpack
+
+Extract a KMT archive to a destination directory.
+
+\`\`\`bash
+kmt unpack <input.kmt> [dest-dir] [options]
+\`\`\`
+
+**Options:**
+- \`-v, --verbose\` - Show files as they're extracted
+- \`-f, --force\` - Overwrite existing files without warning
+
+If no destination is specified:
+- **Absolute path archives**: extract to \`/\` (original locations)
+- **Relative path archives**: extract to \`/home\`
+
+The tool automatically detects whether the archive uses absolute or relative paths.
+
+**Examples:**
+\`\`\`bash
+kmt unpack backup.kmt /home
+kmt unpack examples.kmt --verbose
+kmt unpack archive.kmt /tmp --force
+\`\`\`
+
+### list
+
+List the contents of a KMT archive without extracting.
+
+\`\`\`bash
+kmt list <input.kmt> [options]
+\`\`\`
+
+**Options:**
+- \`-l, --long\` - Show detailed information (file sizes, types)
+
+**Examples:**
+\`\`\`bash
+kmt list backup.kmt
+kmt list archive.kmt --long
+\`\`\`
+
+### info
+
+Display archive metadata and statistics.
+
+\`\`\`bash
+kmt info <input.kmt>
+\`\`\`
+
+Shows format version, label, creation time, compression status, file/directory counts, sizes, and checksums.
+
+**Examples:**
+\`\`\`bash
+kmt info backup.kmt
+\`\`\`
+
+## OPTIONS
+
+Global options (work with all commands):
+
+- \`-h, --help\` - Show help message
+
+Command-specific options are documented under each command above.
+
+## FILE FORMAT
+
+KMT archives are JSON files containing:
+- Metadata (format, version, label, timestamp)
+- Compression info (gzip or none)
+- SHA-256 checksums for integrity verification
+- Statistics (file/directory counts, sizes)
+- Base64-encoded archive data
+- File paths (either all absolute or all relative)
+
+**Important**: A single KMT archive must use either all absolute paths or all relative paths - never mixed. The format is detected automatically by checking if the first entry's path starts with \`/\`.
+
+See \`kmt(5)\` for the complete format specification.
+
+## COMPRESSION
+
+KMT uses gzip compression via the browser's CompressionStream API:
+
+- **Auto mode** (default): Compresses if archive > 1KB
+- **Forced** (\`--compress\`): Always compress
+- **Disabled** (\`--no-compress\`): Never compress
+
+Typical compression ratios:
+- Source code: 60-80% reduction
+- Text files: 50-70% reduction
+- Already compressed files: minimal benefit
+
+## INTEGRITY VERIFICATION
+
+All operations verify SHA-256 checksums:
+
+1. **pack** - Generates checksums for uncompressed and compressed data
+2. **unpack** - Verifies both checksums before extraction
+3. **list/info** - Decompresses and verifies data integrity
+
+If checksums don't match, the operation fails with an error.
+
+## EXIT STATUS
+
+- **0** - Success
+- **1** - Error (invalid arguments, corrupted archive, I/O error)
+
+## EXAMPLES
+
+### Creating Archives
+
+Pack a project directory (relative paths - portable):
+\`\`\`bash
+kmt pack /home/myproject myproject.kmt
+# Creates archive with relative paths: file1.txt, src/main.js, etc.
+\`\`\`
+
+Pack with absolute paths (like backup):
+\`\`\`bash
+kmt pack /home/scripts scripts.kmt --absolute
+# Creates archive with absolute paths: /home/scripts/file1.sh, etc.
+\`\`\`
+
+Pack with custom label:
+\`\`\`bash
+kmt pack /home/scripts scripts.kmt --label "Utility Scripts v2.0"
+\`\`\`
+
+Pack without compression:
+\`\`\`bash
+kmt pack /home/data data.kmt --no-compress
+\`\`\`
+
+### Extracting Archives
+
+Extract relative-path archive to /home:
+\`\`\`bash
+kmt unpack myproject.kmt /home
+# Files appear in /home/file1.txt, /home/src/main.js, etc.
+\`\`\`
+
+Extract relative-path archive to specific location:
+\`\`\`bash
+kmt unpack examples.kmt /tmp/test
+# Files appear in /tmp/test/file1.txt, etc.
+\`\`\`
+
+Extract absolute-path archive to original locations:
+\`\`\`bash
+kmt unpack backup.kmt
+# Files go to their original absolute paths
+\`\`\`
+
+Extract with verbose output:
+\`\`\`bash
+kmt unpack archive.kmt /tmp --verbose
+\`\`\`
+
+Extract and overwrite existing files:
+\`\`\`bash
+kmt unpack fresh.kmt /home --force
+\`\`\`
+
+### Inspecting Archives
+
+List contents:
+\`\`\`bash
+kmt list backup.kmt
+\`\`\`
+
+List with sizes:
+\`\`\`bash
+kmt list backup.kmt --long
+\`\`\`
+
+Show archive info:
+\`\`\`bash
+kmt info backup.kmt
+\`\`\`
+
+### Workflow Example
+
+Create an archive of your projects:
+\`\`\`bash
+kmt pack /home/projects projects-2024.kmt --label "Projects snapshot 2024"
+\`\`\`
+
+Inspect what's in it:
+\`\`\`bash
+kmt list projects-2024.kmt --long
+\`\`\`
+
+Extract to a different location:
+\`\`\`bash
+mkdir /home/restore-test
+kmt unpack projects-2024.kmt /home/restore-test --verbose
+\`\`\`
+
+## TYPICAL USE CASES
+
+### Project Distribution
+
+Package examples or templates for distribution:
+\`\`\`bash
+kmt pack examples/ examples.kmt --label "Schist Examples v1.0"
+\`\`\`
+
+Users can then extract:
+\`\`\`bash
+kmt unpack examples.kmt /home/examples
+\`\`\`
+
+### Selective Backups
+
+Unlike \`backup(1)\` which archives the entire VFS, \`kmt\` lets you backup specific directories:
+\`\`\`bash
+kmt pack /home/projects/myapp myapp-v1.0.kmt
+kmt pack /home/.komarc config.kmt
+\`\`\`
+
+### Archive Distribution
+
+Share configuration or data bundles:
+\`\`\`bash
+kmt pack /home/templates templates.kmt
+# Share templates.kmt via wget or hosting
+\`\`\`
+
+## RETROSPEC NOTE
+
+The \`kmt\` command is inspired by classic Unix archival tools:
+
+- **tar(1)** - Tape Archive (Unix v7, 1979)
+- **cpio(1)** - Copy Input/Output (PWB/UNIX, 1977)
+- **ar(1)** - Archive (Unix v1, 1971)
+
+In 1984-1987, tape backup was essential for workstation data management. The \`tar\` command became ubiquitous for creating portable archives. Koma's \`kmt\` command reimagines this for a browser-based environment, using JSON and modern compression while maintaining the familiar command-line interface.
+
+The name evokes both "Koma Magnetic Tape" and the \`.kmt\` extension, creating a playful retrospec connection to 1980s backup culture.
+
+## FILES
+
+KMT archives are typically stored in:
+- \`/home/*.kmt\` - User archives
+- \`/mnt/backups/*.kmt\` - System backups (created by \`backup(1)\`)
+
+## DIFFERENCES FROM BACKUP/RESTORE
+
+| Feature | kmt | backup/restore |
+|---------|-----|----------------|
+| Scope | Specific paths | Entire VFS |
+| Path type | Relative (default) or absolute | Always absolute |
+| Destination | Anywhere | Downloads only |
+| List contents | Yes (\`kmt list\`) | No |
+| Selective extract | Yes (set dest-dir) | No (restores to original paths) |
+| UI integration | CLI only | Browser file picker |
+
+Use \`kmt\` for general archiving and distribution (relative paths), \`backup/restore\` for full system snapshots (absolute paths).
+
+## SEE ALSO
+
+\`backup(1)\` - Create full VFS backup
+\`restore(1)\` - Restore full VFS backup
+\`kmt(5)\` - KMT archive format specification
+\`man-pages(7)\` - Koma manual page sections
+
+## STANDARDS
+
+KMT format v1.0
+
+## HISTORY
+
+Added in Koma v0.1 to provide granular archive manipulation beyond whole-VFS backup/restore.
+
+---
+
+**Koma Terminal**
+Craton Systems, Inc.
+Part of the Koma Workstation suite
+`,
+
+  'kmt.5.md': `# kmt(5) - Koma Magnetic Tape archive format
+
+## NAME
+
+kmt - Koma Magnetic Tape archive file format
+
+## SYNOPSIS
+
+\`*.kmt\` - Archive files with \`.kmt\` extension
+
+## DESCRIPTION
+
+The KMT (Koma Magnetic Tape) format is a JSON-based archive format used by Koma for backing up and restoring filesystem state. Despite the "magnetic tape" name (a retrospec nod to 1980s backup technology), KMT files are stored as JSON with optional gzip compression.
+
+KMT archives can contain entire directory trees with full metadata preservation, including file contents, directory structure, timestamps, and checksums.
+
+## FILE FORMAT
+
+A KMT file is a JSON object with the following structure:
+
+\`\`\`json
+{
+  "format": "kmt",
+  "version": "1.0",
+  "created": "2025-11-11T10:30:00.000Z",
+  "label": "backup-label",
+  "compression": "gzip",
+  "checksum": {
+    "uncompressed": "sha256:abc123...",
+    "compressed": "sha256:def456..."
+  },
+  "stats": {
+    "files": 42,
+    "dirs": 8,
+    "totalSize": 102400,
+    "compressedSize": 45678
+  },
+  "data": "base64-encoded-data..."
+}
+\`\`\`
+
+### Top-Level Fields
+
+- **format** (string) - Always \`"kmt"\` for KMT archives
+- **version** (string) - Format version, currently \`"1.0"\`
+- **created** (string) - ISO 8601 timestamp of archive creation
+- **label** (string) - User-provided label or auto-generated from path
+- **compression** (string) - Either \`"gzip"\` or \`"none"\`
+- **checksum** (object) - SHA-256 checksums for integrity verification
+- **stats** (object) - Archive statistics
+- **data** (string) - Base64-encoded archive data (possibly compressed)
+
+### Checksum Object
+
+The \`checksum\` object contains SHA-256 hashes:
+
+- **uncompressed** (string) - SHA-256 of uncompressed data as \`"sha256:hexdigest"\`
+- **compressed** (string) - SHA-256 of compressed data (only if compression is used)
+
+### Stats Object
+
+The \`stats\` object contains archive metrics:
+
+- **files** (number) - Total number of files
+- **dirs** (number) - Total number of directories
+- **totalSize** (number) - Uncompressed size in bytes
+- **compressedSize** (number) - Compressed size in bytes (only if compressed)
+
+### Data Format
+
+The \`data\` field contains a base64-encoded JSON array of entries. When decompressed (if needed) and decoded, it becomes:
+
+\`\`\`json
+[
+  {
+    "path": "/home/file.txt",
+    "type": "file",
+    "content": "file contents here",
+    "modified": 1699876543210,
+    "size": 18
+  },
+  {
+    "path": "/home/projects",
+    "type": "directory",
+    "modified": 1699876543210
+  }
+]
+\`\`\`
+
+Each entry has:
+
+- **path** (string) - File path (absolute or relative, see below)
+- **type** (string) - Either \`"file"\` or \`"directory"\`
+- **content** (string) - File contents (only for files)
+- **modified** (number) - Unix timestamp in milliseconds
+- **size** (number) - File size in bytes (only for files)
+
+### Path Types
+
+**Important**: All paths in a single KMT archive must be either all absolute or all relative - never mixed.
+
+**Absolute paths** start with \`/\`:
+\`\`\`json
+{
+  "path": "/home/projects/file.txt",
+  "type": "file",
+  ...
+}
+\`\`\`
+
+**Relative paths** do not start with \`/\`:
+\`\`\`json
+{
+  "path": "projects/file.txt",
+  "type": "file",
+  ...
+}
+\`\`\`
+
+The path type is automatically detected by checking if the first entry starts with \`/\`.
+
+- **\`backup(1)\`** always creates archives with absolute paths
+- **\`kmt pack\`** creates relative paths by default (use \`--absolute\` for absolute)
+- **\`kmt unpack\`** automatically detects and handles both types
+
+## COMPRESSION
+
+KMT supports optional gzip compression:
+
+- **Enabled** - When \`compression: "gzip"\`, the entries JSON is gzipped before base64 encoding
+- **Disabled** - When \`compression: "none"\`, the entries JSON is directly base64 encoded
+- **Auto-detection** - The restore process automatically detects and handles both formats
+
+Compression typically achieves 60-80% size reduction for text files, making it ideal for backups with source code, configuration files, and documentation.
+
+## INTEGRITY VERIFICATION
+
+KMT uses SHA-256 checksums for data integrity:
+
+1. **Uncompressed checksum** - Verifies the entries JSON
+2. **Compressed checksum** - Verifies the compressed data (if compression used)
+
+During restore, checksums are validated to detect corruption or tampering.
+
+## TYPICAL USE CASES
+
+### Full Filesystem Backup (Absolute Paths)
+
+\`\`\`bash
+backup /home mybackup.kmt "Daily backup"
+\`\`\`
+
+Creates a complete backup of \`/home\` with all subdirectories using absolute paths (\`/home/file.txt\`, etc.).
+
+### Project Archive (Relative Paths - Portable)
+
+\`\`\`bash
+kmt pack /home/projects/myapp project-v1.0.kmt
+\`\`\`
+
+Archive a specific project directory using relative paths (\`file.txt\`, \`src/main.js\`) for portability.
+
+### Project Archive (Absolute Paths)
+
+\`\`\`bash
+kmt pack /home/projects/myapp project-v1.0.kmt --absolute
+\`\`\`
+
+Archive with absolute paths (\`/home/projects/myapp/file.txt\`) to preserve exact locations.
+
+### Configuration Snapshot
+
+\`\`\`bash
+backup /home/.komarc config.kmt "Shell config"
+\`\`\`
+
+Save configuration files.
+
+### Restore Operations
+
+\`\`\`bash
+restore mybackup.kmt
+\`\`\`
+
+Restore an entire archive to its original paths.
+
+## RETROSPEC NOTE
+
+The name "Koma Magnetic Tape" is a playful nod to 1980s backup technology:
+
+- **QIC-02** (Quarter-Inch Cartridge) - Common in mid-80s workstations
+- **DAT** (Digital Audio Tape) - Used for backups starting 1987
+- **Tape drives** - Essential for system backup before widespread network storage
+
+In 1984-1987, a workstation would use tape drives for archival storage. Koma's KMT format imagines what such a format would look like if it had been designed with modern JSON and compression from the start - a "speculative retrospective" take on archive formats.
+
+The \`.kmt\` extension evokes both "Koma" and "magnetic tape" while being a modern, human-readable JSON format suitable for version control and inspection.
+
+## FILE EXTENSION
+
+By convention, KMT archives use the \`.kmt\` extension, though any extension (or none) will work as long as the JSON structure is valid.
+
+## COMPATIBILITY
+
+KMT v1.0 is the current and only version. Future versions will maintain backward compatibility with v1.0 archives.
+
+## SEE ALSO
+
+\`backup(1)\` - Create KMT archives
+\`restore(1)\` - Extract KMT archives
+\`kmt(1)\` - Manipulate KMT archives (pack/unpack/list)
+
+## SPECIFICATION VERSION
+
+KMT Format Specification v1.0
+Added in Koma v0.1
+
+---
+
+**Koma Terminal**
+Craton Systems, Inc.
+Part of the Koma Workstation suite
+`,
+
   'ls.1.md': `# NAME
 
 ls - list directory contents
@@ -1972,6 +2529,8 @@ koma - Koma system management
 
 \`\`\`bash
 koma version
+koma insert <archive> [options]
+koma eject <name>
 koma update
 koma upgrade
 koma reset
@@ -2007,6 +2566,80 @@ Man pages: 37
 Last update: 2025-11-10T15:30:00.000Z
 Status: Up to date
 \`\`\`
+
+### koma insert
+
+Download and unpack KMT archives from the Koma store. The store is a collection of curated archives (examples, templates, utilities) that can be easily installed into your Koma environment.
+
+**Synopsis:**
+\`\`\`bash
+koma insert <archive> [options]
+\`\`\`
+
+The \`.kmt\` extension is automatically appended if not provided, so \`koma insert examples\` is equivalent to \`koma insert examples.kmt\`.
+
+**Options:**
+- \`--download-only\` - Download archive to \`/media/\` without unpacking
+- \`--to <dir>\` - Unpack to custom directory
+
+**How it works:**
+1. Downloads archive from \`<origin>/store/<archive.kmt>\`
+2. Verifies KMT format and checksums
+3. Unpacks to \`/media/<name>/\` (or custom location)
+4. Makes content immediately available
+
+**Examples:**
+\`\`\`bash
+# Download and unpack Schist examples
+koma insert examples
+# Files available at: /media/examples/
+
+# Download only
+koma insert examples --download-only
+# Saved to: /media/examples.kmt
+
+# Unpack to custom location
+koma insert examples --to /home/examples
+\`\`\`
+
+**Available archives:**
+- \`examples.kmt\` - Schist Lisp examples (4 files, 3.1KB)
+
+Check \`/store/README.md\` in the repository for the full catalog.
+
+**Notes:**
+- Store URL is auto-detected from \`window.location.origin\`
+- Archives use relative paths for portability
+- All archives are verified with SHA-256 checksums
+- Failed downloads are automatically cleaned up
+
+### koma eject
+
+Remove (eject) a KMT tape from the \`/media/\` directory. This command is the counterpart to \`koma insert\` and removes either unpacked directories or downloaded KMT files.
+
+**Synopsis:**
+\`\`\`bash
+koma eject <name>
+\`\`\`
+
+**Examples:**
+\`\`\`bash
+# Eject unpacked examples
+koma eject examples
+# Removes: /media/examples/ and all contents
+
+# Eject downloaded KMT file
+koma eject examples.kmt
+# Removes: /media/examples.kmt
+\`\`\`
+
+**Notes:**
+- Automatically detects whether the target is a directory or file
+- Recursively removes directories and all their contents
+- Operates only on \`/media/\` directory (safe operation)
+- Equivalent to \`rm -r /media/<name>\`
+
+**Warning:** This permanently deletes the specified tape. To restore it, use \`koma insert\` to download it again.
 
 ### koma update
 
@@ -2150,7 +2783,7 @@ koma reset
 
 ## SEE ALSO
 
-help(1), man(1), restart(1)
+help(1), man(1), restart(1), kmt(1), kmt(5)
 
 ## HISTORY
 
@@ -2344,6 +2977,479 @@ Craton Systems, Inc.
 Part of the Koma Workstation suite
 `,
 
+  'magma.1.md': `# NAME
+
+magma - raw VFS dump and inject operations
+
+## SYNOPSIS
+
+\`\`\`bash
+magma dump [filename] [--download]
+magma inject <filename> --yes
+magma list
+magma --help
+\`\`\`
+
+## DESCRIPTION
+
+The \`magma\` command provides low-level VFS backup and restore functionality using raw JSON dumps. Named after the molten rock from which olivine crystals form, magma dumps are unprocessed, uncompressed filesystem exports designed for disaster recovery.
+
+Magma dumps (\`.magma\` files) are:
+- **Faster** to create than \`.kmt\` archives (no compression)
+- **Larger** in size (uncompressed JSON)
+- **Simpler** in format (direct IndexedDB export)
+- **Emergency-focused** (work even when other systems are broken)
+
+## SUBCOMMANDS
+
+### magma dump
+
+Export the entire VFS as a raw \`.magma\` file.
+
+**Synopsis:**
+\`\`\`bash
+magma dump [filename] [--download|-d]
+\`\`\`
+
+**Arguments:**
+- \`filename\` - Optional name for the backup file. If omitted, generates timestamp-based name.
+- \`--download\`, \`-d\` - Force download to user's computer (default for non-absolute paths)
+
+**Behavior:**
+- If \`filename\` starts with \`/\`, saves to VFS at that path
+- Otherwise, downloads to user's computer
+- Automatically appends \`.magma\` extension if not present
+
+**Examples:**
+\`\`\`bash
+# Download with generated name
+magma dump
+# → magma-dump-2025-11-11T16-00-00-000Z.magma
+
+# Download with custom name
+magma dump pre-experiment
+# → pre-experiment.magma
+
+# Save to VFS
+magma dump /home/backup-1
+# → /home/backup-1.magma
+
+# Force download (even with path-like name)
+magma dump backup --download
+\`\`\`
+
+---
+
+### magma inject
+
+Restore VFS from a \`.magma\` file.
+
+**Synopsis:**
+\`\`\`bash
+magma inject <filename> --yes
+\`\`\`
+
+**Arguments:**
+- \`filename\` - Path to \`.magma\` file in VFS (required)
+- \`--yes\`, \`-y\`, \`--now\` - Confirmation flag (required)
+
+**Warning:** This is a **destructive operation**. The entire VFS will be cleared and replaced with the backup contents. The \`--yes\` flag is required to prevent accidental data loss.
+
+**Examples:**
+\`\`\`bash
+# First, check what backups exist
+magma list
+
+# Inject with confirmation
+magma inject backup.magma --yes
+
+# Inject from specific path
+magma inject /home/.koma-backup-1731350400000.magma --yes
+\`\`\`
+
+**What happens:**
+1. Reads the \`.magma\` file from VFS
+2. Validates JSON format
+3. **Clears entire VFS** (all files deleted)
+4. Restores all entries from backup
+5. Rebuilds directory structure
+
+**Note:** After injection, you may need to refresh the page or run \`restart\` to see changes in the terminal.
+
+---
+
+### magma list
+
+Show all \`.magma\` files in \`/home\`.
+
+**Synopsis:**
+\`\`\`bash
+magma list
+\`\`\`
+
+**Output:**
+- Lists all \`.magma\` files found in \`/home\`
+- Shows file size and modification date
+- Sorted by newest first
+
+**Example:**
+\`\`\`bash
+$ magma list
+Magma backups in /home:
+
+  pre-experiment.magma
+    234.5 KB, modified 11/11/2025, 4:00:00 PM
+
+  .koma-backup-1731350400000.magma
+    198.2 KB, modified 11/11/2025, 2:30:00 PM
+
+To restore: magma inject <filename> --yes
+\`\`\`
+
+## FILE FORMAT
+
+Magma files are raw JSON dumps with this structure:
+
+\`\`\`json
+{
+  "version": "1.0",
+  "timestamp": "2025-11-11T16:00:00.000Z",
+  "entries": [
+    {
+      "path": "/home/file.txt",
+      "name": "file.txt",
+      "type": "file",
+      "parent": "/home",
+      "content": "file contents here",
+      "size": 123,
+      "created": 1731350400000,
+      "modified": 1731350400000
+    },
+    {
+      "path": "/home/dir",
+      "name": "dir",
+      "type": "directory",
+      "parent": "/home",
+      "created": 1731350400000,
+      "modified": 1731350400000,
+      "size": 0
+    }
+  ]
+}
+\`\`\`
+
+**Fields:**
+- \`version\` - Format version (currently "1.0")
+- \`timestamp\` - ISO 8601 timestamp of when backup was created
+- \`entries\` - Array of all VFS entries (files and directories)
+
+**Entry fields:**
+- \`path\` - Full path (e.g., "/home/file.txt")
+- \`name\` - Entry name (e.g., "file.txt")
+- \`type\` - Either "file" or "directory"
+- \`parent\` - Parent directory path
+- \`content\` - File contents (only for type="file")
+- \`size\` - Size in bytes
+- \`created\` - Creation timestamp (milliseconds since epoch)
+- \`modified\` - Modification timestamp (milliseconds since epoch)
+
+## COMPARISON: MAGMA VS KMT
+
+| Feature | .magma | .kmt |
+|---------|--------|------|
+| **Purpose** | Emergency recovery | Archival/distribution |
+| **Format** | Raw JSON | Refined JSON |
+| **Compression** | None | Gzip |
+| **Checksums** | No | Dual SHA-256 |
+| **Size** | Large | Small (70-85% reduction) |
+| **Speed** | Fast | Slower |
+| **Use case** | Disaster recovery | Backups, sharing |
+
+**Geological metaphor:**
+- \`.magma\` - Molten rock (olivine crystallizes from magma)
+- \`.kmt\` - Solid komatiite rock formation
+
+## RECOVERY INTEGRATION
+
+The magma command integrates with the **six-finger salute** recovery system:
+
+\`\`\`
+Ctrl+K E  → Export .magma to downloads
+Ctrl+K S  → Save .magma to /home
+\`\`\`
+
+See \`man recovery\` for the full recovery sequence.
+
+## COMMON WORKFLOWS
+
+### Pre-update backup
+
+\`\`\`bash
+# Before major system update
+magma dump pre-update-$(date +%Y%m%d)
+koma upgrade
+# If something breaks:
+magma inject pre-update-20251111.magma --yes
+\`\`\`
+
+---
+
+### Experiment safely
+
+\`\`\`bash
+# Save state before experiment
+magma dump /home/safe-state
+
+# Try risky operations...
+schist eval '(some-experimental-code)'
+
+# Restore if needed
+magma inject /home/safe-state.magma --yes
+\`\`\`
+
+---
+
+### Regular backups
+
+\`\`\`bash
+# Weekly backup routine
+magma dump weekly-$(date +%Y-%U) --download
+
+# Keep backups organized
+mkdir /home/backups
+magma dump /home/backups/$(date +%Y-%m-%d)
+\`\`\`
+
+---
+
+### Disaster recovery
+
+\`\`\`bash
+# System is broken, create emergency backup
+Ctrl+K E  # Downloads magma-dump-[timestamp].magma
+
+# Fix the issue or restart
+# Then restore from backup via upload + inject
+magma inject emergency-backup.magma --yes
+\`\`\`
+
+## EXIT STATUS
+
+- **0** - Success
+- **1** - Error (file not found, invalid format, etc.)
+
+## FILES
+
+- \`/home/*.magma\` - User magma backups
+- \`/home/.koma-backup-*.magma\` - Auto-generated backups from recovery system
+
+## SECURITY
+
+**Warning:** Magma files contain **all VFS data** including:
+- All files in \`/home\` (your personal data)
+- Saved scripts and configurations
+- Command history (in shell state)
+- Any sensitive information in the VFS
+
+Do not share magma files unless you want to share everything in your VFS.
+
+## LIMITATIONS
+
+1. **No compression** - Files are large (100KB-10MB typical)
+2. **No checksums** - Cannot verify integrity
+3. **VFS only** - Does not backup:
+   - Terminal state (current command line, cursor position)
+   - Tab layout and active tab
+   - Background processes
+   - Browser IndexedDB metadata
+
+4. **Requires VFS access** - Cannot inject from external file (must be in VFS first)
+
+## TROUBLESHOOTING
+
+### "Failed to read file"
+
+The \`.magma\` file doesn't exist in the VFS. Either:
+- Upload it first (via \`vein\` or file upload mechanism)
+- Check the filename with \`magma list\`
+- Verify the full path is correct
+
+### "Invalid magma format"
+
+The file is corrupted or not a valid \`.magma\` file. Try:
+- Re-download from backup source
+- Check file size (should be >10KB typically)
+- Verify it's valid JSON (\`cat filename.magma | head\`)
+
+### "After inject, files not showing"
+
+The inject worked, but you need to refresh state:
+- Run \`restart\` command
+- Or reload the browser tab (Ctrl+K R-E-I-S-U-B)
+
+## SEE ALSO
+
+recovery(7), backup(1), restore(1), kmt(1), kmt(5), koma(1)
+
+## HISTORY
+
+The \`magma\` command was introduced in Koma 0.6.0 as part of the Shale hardening initiative. It provides command-line access to the raw VFS dump/inject functionality used by the recovery system's six-finger salute (Ctrl+K R-E-I-S-U-B).
+
+The name "magma" reflects the geological theme: molten rock from which olivine crystals form, representing the raw, unprocessed state of the VFS before refinement into komatiite archives.
+`,
+
+  'man-pages.7.md': `# man-pages(7) - Koma manual page sections
+
+## NAME
+
+man-pages - conventions for Koma manual pages
+
+## DESCRIPTION
+
+The Koma manual is organized into numbered sections, following the traditional Unix convention. Each section contains documentation for a specific category of functionality.
+
+When you run \`man command\`, the man system searches through sections in order and displays the first match. To view a specific section, use \`man section command\` (e.g., \`man 5 kmt\`).
+
+## SECTIONS
+
+Koma uses the following manual sections:
+
+### Section 1: User Commands
+
+Executable programs and shell commands that users interact with directly.
+
+Examples: \`ls(1)\`, \`grep(1)\`, \`cat(1)\`, \`backup(1)\`, \`schist(1)\`
+
+These are the most commonly used man pages - they document the built-in commands available at the shell prompt.
+
+### Section 3: Library Functions
+
+Standard library modules available to scripts and programs. These are imported modules that provide reusable functionality.
+
+Examples: \`fs(3)\`, \`http(3)\`, \`path(3)\`, \`notify(3)\`, \`argparse(3)\`
+
+Scripts can import these with \`import { functionName } from 'stdlib/modulename.js'\`.
+
+### Section 5: File Formats
+
+Configuration files, archive formats, and other file specifications.
+
+Examples: \`komarc(5)\`, \`kmt(5)\`
+
+These document the structure and syntax of file formats used by the system.
+
+### Section 7: Miscellaneous
+
+System overviews, conventions, protocols, and other documentation that doesn't fit in other sections.
+
+Examples: \`man-pages(7)\` (this page)
+
+This section is for meta-documentation about the system itself.
+
+## SECTION NUMBERING HISTORY
+
+The section numbering scheme originates from the original Unix Programmer's Manual (1971). Koma follows this time-honored convention:
+
+- **Section 1** - Commands (since Unix v1, 1971)
+- **Section 2** - System calls (not used in Koma - no kernel API)
+- **Section 3** - Library functions (since Unix v3, 1973)
+- **Section 4** - Special files (not used in Koma - virtual filesystem)
+- **Section 5** - File formats (since Unix v7, 1979)
+- **Section 6** - Games (reserved for future use)
+- **Section 7** - Miscellaneous (since Unix v7, 1979)
+- **Section 8** - System administration (not used - all users are admin)
+
+## FILENAME CONVENTION
+
+Man page source files use the naming convention:
+
+\`\`\`
+name.section.md
+\`\`\`
+
+Examples:
+- \`ls.1.md\` - ls command (section 1)
+- \`kmt.5.md\` - KMT format (section 5)
+- \`fs.3.md\` - fs library (section 3)
+- \`man-pages.7.md\` - this page (section 7)
+
+## ORGANIZATION
+
+Man pages are organized by category in the source tree:
+
+\`\`\`
+docs/man/
+├── filesystem/     # Section 1 commands (file operations)
+├── shell/          # Section 1 commands (shell features)
+└── stdlib/         # Section 3 library modules
+\`\`\`
+
+The section number is encoded in the filename, not the directory structure.
+
+## STANDARD SECTIONS
+
+Each man page should contain these sections (as applicable):
+
+- **NAME** - Command/function name and brief description
+- **SYNOPSIS** - Command syntax or function signature
+- **DESCRIPTION** - Detailed description
+- **OPTIONS** - Command-line flags and options (section 1 only)
+- **EXAMPLES** - Usage examples with code blocks
+- **FILES** - Related files (if any)
+- **SEE ALSO** - Related commands or functions
+- **NOTES** - Additional information
+- **HISTORY** - When the feature was added
+
+## CROSS-REFERENCES
+
+When referencing other man pages, use the format \`name(section)\`:
+
+\`\`\`
+See also: ls(1), grep(1), kmt(5)
+\`\`\`
+
+This indicates which section the referenced page is in.
+
+## BUILDING MAN PAGES
+
+Man pages are written in Markdown and compiled into JavaScript:
+
+1. Edit \`.md\` files in \`docs/man/\`
+2. Run \`python build-man-pages.py\`
+3. Generated \`src/utils/man-pages.js\` is updated
+4. New pages are immediately available via \`man\` command
+
+Never edit \`man-pages.js\` directly - it's auto-generated.
+
+## RETROSPEC NOTE
+
+The Unix manual has been organized into sections since 1971. The first edition of the Unix Programmer's Manual had sections for:
+
+1. Commands
+2. System calls
+3. Subroutines
+
+By Unix v7 (1979), the modern section numbering was established. Koma follows this 45+ year tradition, adapting it for a browser-based virtual environment while maintaining the familiar organization that Unix users expect.
+
+The section numbers themselves are part of computing history - seeing \`ls(1)\` or \`printf(3)\` immediately tells experienced users what category of documentation they're looking at.
+
+## SEE ALSO
+
+\`man(1)\` - Manual page viewer
+\`koma(1)\` - Koma system overview
+\`help(1)\` - Quick command reference
+
+## STANDARDS
+
+Based on Unix manual page conventions established in Unix v7 (1979) and codified in BSD and System V documentation practices.
+
+---
+
+**Koma Terminal**
+Craton Systems, Inc.
+Part of the Koma Workstation suite
+`,
+
   'man.1.md': `# NAME
 
 man - display manual pages
@@ -2414,6 +3520,367 @@ ps
 ## SEE ALSO
 
 run(1), kill(1)
+`,
+
+  'recovery.7.md': `# NAME
+
+recovery - Koma emergency recovery system
+
+## SYNOPSIS
+
+**Six-finger salute:** \`Ctrl+K\` followed by \`R E I S U B\`
+
+## DESCRIPTION
+
+The Koma recovery system provides a progressive disaster recovery mechanism inspired by Linux's SysRq REISUB sequence. When the terminal becomes unresponsive or the system is in an unstable state, the six-finger salute provides escalating recovery actions.
+
+The recovery sequence is designed to be typed slowly (one key at a time with visual feedback) rather than all at once, allowing you to stop at the appropriate recovery level.
+
+## THE SIX-FINGER SALUTE
+
+To initiate recovery:
+
+1. Press \`Ctrl+K\` to enter command mode
+2. Type the recovery keys one at a time: \`R E I S U B\`
+
+Each key performs a progressively more aggressive recovery action. The status bar shows your progress through the sequence and prompts for the next key.
+
+**Timeout:** If you wait more than 3 seconds between keys, the sequence resets and you must start over with \`Ctrl+K\`.
+
+## RECOVERY ACTIONS
+
+### R - Reset Terminal
+
+**Action:** Clear terminal screen and reset shell state
+
+**When to use:**
+- Terminal output is corrupted or garbled
+- Visual artifacts in the terminal
+- Display issues after a failed command
+
+**What it does:**
+- Clears the terminal screen
+- Resets the shell prompt
+- Preserves command history and VFS
+
+**Safe:** Yes - No data loss
+
+**Example scenario:** After accidentally \`cat\`ing a binary file that corrupted the display.
+
+---
+
+### E - Export Backup
+
+**Action:** Download VFS backup as \`.ore\` file
+
+**When to use:**
+- Before attempting risky operations
+- To create an emergency backup
+- Before proceeding with more aggressive recovery steps
+
+**What it does:**
+- Exports entire VFS as raw JSON dump
+- Downloads file as \`magma-dump-[timestamp].magma\`
+- File contains complete filesystem snapshot
+
+**Safe:** Yes - Read-only operation
+
+**File format:** \`.magma\` (molten VFS dump) - uncompressed JSON dump of the entire IndexedDB VFS. Named after the molten rock from which olivine crystallizes, this is a more primitive format than \`.kmt\` tape archives.
+
+**Example scenario:** Terminal is acting strange and you want a backup before trying more aggressive fixes.
+
+---
+
+### I - Initialize Kernel
+
+**Action:** Restart the Olivine kernel worker
+
+**When to use:**
+- Kernel is unresponsive
+- VFS operations are failing
+- Suspected kernel corruption
+
+**What it does:**
+- Terminates the current kernel worker
+- Creates a new kernel worker
+- Reinitializes VFS connection
+- Reloads standard library modules
+
+**Safe:** Mostly - Active processes will be killed, but VFS data is preserved
+
+**Warning:** Any running background processes will be terminated.
+
+**Example scenario:** VFS commands are failing with strange errors, or file operations are hanging.
+
+---
+
+### S - Save Backup
+
+**Action:** Save VFS backup to internal filesystem
+
+**When to use:**
+- To create an internal restore point
+- Before system-level changes
+- As a fallback if external download fails
+
+**What it does:**
+- Exports VFS as raw JSON
+- Saves to \`/home/.koma-backup-[timestamp].magma\`
+- Backup remains in VFS for later restoration
+
+**Safe:** Yes - Creates internal backup
+
+**Note:** The backup file itself is stored in the VFS, so it won't help if the VFS is completely corrupted. Use **E** (Export) for a truly external backup.
+
+**Example scenario:** You want to experiment with system changes but keep an easy rollback point.
+
+---
+
+### U - Unload Processes
+
+**Action:** Terminate all running processes
+
+**When to use:**
+- Runaway processes consuming resources
+- System is sluggish or unresponsive
+- Before kernel reinitialization
+- Process manager is in bad state
+
+**What it does:**
+- Kills all running background processes
+- Clears process manager state
+- Frees up resources
+
+**Safe:** Mostly - Running processes will be lost
+
+**Warning:** Any background scripts or scheduled tasks will be terminated immediately.
+
+**Example scenario:** A background process is stuck in an infinite loop and making the terminal unresponsive.
+
+---
+
+### B - Bounce (Hard Restart)
+
+**Action:** Reload the entire page
+
+**When to use:**
+- Last resort when nothing else works
+- Kernel is completely broken
+- UI is unresponsive
+- After major errors
+
+**What it does:**
+- Performs a full page reload
+- Restarts all JavaScript
+- Reinitializes entire Koma system
+- Reloads VFS from IndexedDB
+
+**Safe:** Yes if VFS is healthy, **data loss possible** if VFS is corrupted
+
+**Warning:** This is the most aggressive recovery option. Any unsaved terminal state, command history from the current session, or data not in the VFS will be lost. The VFS itself persists in IndexedDB and will be restored.
+
+**Example scenario:** The entire UI is frozen, nothing responds, and even Ctrl+K doesn't work anymore.
+
+## RECOVERY STRATEGY
+
+Follow this decision tree:
+
+\`\`\`
+Is the display corrupted? → R (Reset)
+↓ no
+Do you need a backup? → E (Export) or S (Save)
+↓ no
+Are VFS commands failing? → I (Initialize)
+↓ no
+Is a process stuck? → U (Unload)
+↓ no
+Is nothing working? → B (Bounce)
+\`\`\`
+
+**Progressive approach:**
+- Start with the least aggressive option that might fix your problem
+- Wait and test after each step
+- Only proceed to the next step if the problem persists
+- Take a backup (E) before aggressive actions (I, U, B)
+
+## FILE FORMATS
+
+### .magma (Molten VFS Dump)
+
+Raw VFS dumps created by the recovery system (E and S steps) and the \`magma\` command.
+
+**Format:**
+\`\`\`json
+{
+  "version": "1.0",
+  "timestamp": "2025-11-11T16:00:00.000Z",
+  "entries": [
+    {
+      "path": "/home/file.txt",
+      "type": "file",
+      "content": "...",
+      "size": 123,
+      "created": 1234567890,
+      "modified": 1234567890
+    },
+    ...
+  ]
+}
+\`\`\`
+
+**Characteristics:**
+- Uncompressed JSON
+- Direct IndexedDB dump
+- No checksums or compression
+- Larger file sizes than .kmt
+- Faster to create than .kmt
+- Emergency/internal use
+
+**Geological naming:**
+- \`.magma\` - Molten, unprocessed (olivine crystallizes from magma)
+- \`.kmt\` - Solidified, refined (komatiite rock formation)
+
+The naming reflects the geological process: magma → olivine → komatiite.
+
+## RESTORING FROM BACKUPS
+
+Use the \`magma inject\` command to restore from \`.magma\` backups:
+
+\`\`\`bash
+# First, verify the backup exists
+magma list
+
+# Inject with confirmation
+magma inject backup.magma --yes
+\`\`\`
+
+**Warning:** \`magma inject\` is destructive - it clears the entire VFS before restoring. The \`--yes\` flag is required to confirm this destructive operation.
+
+**Alternative:** For programmatic restore via developer console:
+
+\`\`\`javascript
+// Load .magma file content into variable 'magmaData'
+const kernel = await kernelClient.getKernel();
+await kernel.importVFS(magmaData);
+\`\`\`
+
+## EXAMPLES
+
+### Corrupted display
+
+\`\`\`
+Ctrl+K R
+\`\`\`
+
+Clears the screen and resets the terminal.
+
+---
+
+### Create backup before risky operation
+
+\`\`\`
+Ctrl+K R E
+\`\`\`
+
+1. Reset terminal for clean slate
+2. Export backup to downloads
+
+---
+
+### Stuck process making terminal slow
+
+\`\`\`
+Ctrl+K U
+\`\`\`
+
+Kills all processes and frees resources.
+
+---
+
+### Complete system freeze
+
+\`\`\`
+Ctrl+K R E I S U B
+\`\`\`
+
+Full progressive recovery:
+1. Reset terminal
+2. Export backup
+3. Restart kernel
+4. Save internal backup
+5. Kill all processes
+6. Hard restart
+
+(Though realistically, if the system is completely frozen, you may need to just close the tab and reopen it.)
+
+---
+
+### Standard pre-update backup
+
+\`\`\`
+Ctrl+K S
+\`\`\`
+
+Saves backup to \`/home/.koma-backup-[timestamp].magma\` before system update.
+
+---
+
+### Command-line backup workflow
+
+\`\`\`bash
+# Create named backup
+magma dump pre-experiment
+
+# Do risky operations...
+
+# List available backups
+magma list
+
+# Restore if needed
+magma inject pre-experiment.magma --yes
+\`\`\`
+
+## KEYBOARD SHORTCUTS
+
+- \`Ctrl+K\` - Enter command mode
+- \`Ctrl+K\` + \`R\` - Reset terminal
+- \`Ctrl+K\` + \`E\` - Export backup
+- \`Ctrl+K\` + \`I\` - Initialize kernel
+- \`Ctrl+K\` + \`S\` - Save backup
+- \`Ctrl+K\` + \`U\` - Unload processes
+- \`Ctrl+K\` + \`B\` - Bounce (restart)
+- \`Esc\` - Cancel recovery sequence
+
+## SAFETY
+
+**VFS Persistence:**
+The Koma VFS is stored in browser IndexedDB, which persists across page reloads. As long as IndexedDB is healthy, your data survives all recovery actions including hard restarts (B).
+
+**Data loss scenarios:**
+- Browser cache/storage is cleared
+- IndexedDB becomes corrupted
+- Browser private mode (no persistence)
+
+**Recovery limitations:**
+- Cannot recover from IndexedDB corruption
+- Cannot recover from browser storage being cleared
+- Cannot recover unsaved terminal input
+
+**Best practices:**
+1. Export backups (E) regularly to external storage
+2. Use \`backup\` command for regular \`.kmt\` backups
+3. Test recovery procedures when system is healthy
+4. Keep important data in \`.kmt\` archives for redistribution
+
+## SEE ALSO
+
+magma(1), koma(1), restart(1), backup(1), restore(1), kmt(5)
+
+## HISTORY
+
+The six-finger salute recovery system was introduced in Koma 0.6.0 as part of the Shale hardening initiative. It was inspired by Linux's Magic SysRq REISUB sequence for emergency system recovery.
+
+The name "six-finger salute" comes from the six recovery keys (R-E-I-S-U-B) that must be typed in sequence, reminiscent of the typing pattern required to safely reboot a frozen Linux system.
 `,
 
   'restart.1.md': `# NAME

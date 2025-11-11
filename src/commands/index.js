@@ -5,8 +5,10 @@
 
 import { registerFilesystemCommands } from './filesystem.js';
 import { registerShellCommands } from './shell.js';
+import { registerMagmaCommands } from './magma.js';
 
 export function registerBuiltins(shell, tabManager = null, editor = null) {
   registerFilesystemCommands(shell, editor);
   registerShellCommands(shell, tabManager);
+  registerMagmaCommands(shell);
 }
