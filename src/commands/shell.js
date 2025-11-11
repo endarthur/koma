@@ -1351,7 +1351,7 @@ export function registerShellCommands(shell, tabManager = null) {
         { command: 'schist -e "(+ 1 2 3)"', description: 'Evaluate expression' },
         { command: 'schist -e "(list 1 2 3)"', description: 'Create list' },
         { command: 'schist -e "(car (list 1 2 3))"', description: 'Get first element' },
-        { command: 'schist -e "(if (= 1 1) \\'yes \\'no)"', description: 'Conditional' },
+        { command: 'schist -e "(if (= 1 1) \\\'yes \\\'no)"', description: 'Conditional' },
         { command: 'schist -e "((lambda (x) (* x x)) 5)"', description: 'Lambda function' },
         { command: 'schist examples/metacircular.scm', description: 'Run Schist file' }
       ],
