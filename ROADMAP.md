@@ -1177,6 +1177,106 @@ if (answer === 'y') {
 
 ---
 
+### ✅ Phase 6.6: Boot System (Slate Hardening) (COMPLETE)
+**Goal:** Production-grade boot process with error recovery and health monitoring
+
+**Why This Phase:**
+After completing Phase 6.5, Koma had no structured boot process - race conditions between kernel and UI, no error handling, no recovery mechanism when kernel fails. Users losing data from VFS corruption had no recourse. This phase implements a robust "Slate Hardening" boot system (metamorphic transformation of Shale under pressure).
+
+**Completed:**
+
+**Boot Architecture:**
+- [x] **5-Stage Boot Process:**
+  1. Pre-flight - Browser capability checks (<100ms)
+  2. Kernel - Olivine initialization with timeout and VFS verification
+  3. UI - Editor and Shale (tab manager) creation
+  4. Environment - Tab restoration and .komarc loading
+  5. Monitoring - Background health checks
+- [x] **BootManager class** - Orchestrates boot sequence with proper error handling
+- [x] **Pre-flight checks:**
+  - IndexedDB availability
+  - Web Workers support
+  - ES Modules support
+  - Storage quota check (min 10MB, recommended 50MB)
+  - Sandbox restrictions detection
+- [x] **VFS health verification:**
+  - Read/write test after kernel init
+  - Confirms VFS is actually working
+  - Early detection of corrupted state
+
+**Error Recovery:**
+- [x] **Emergency Mode:**
+  - Activates when kernel fails to initialize
+  - Direct IndexedDB manipulation (bypasses broken kernel)
+  - Upload .magma backups to restore VFS
+  - Comprehensive diagnostic reports
+  - Clear recovery instructions
+- [x] **Safe Mode:**
+  - Minimal boot for troubleshooting
+  - Activated via `?safemode` URL parameter
+  - Skips .komarc execution
+  - Disables health monitoring
+  - Single tab only (no restoration)
+  - Visual indicator with exit option
+- [x] **Feature flag:** `ENABLE_BOOT_MANAGER` with legacy fallback
+
+**Health Monitoring:**
+- [x] **Session state backups (lightweight):**
+  - Every 30 seconds
+  - Tabs, history, current input (~10KB)
+  - Separate IndexedDB (KomaSessionState)
+  - Does NOT backup full VFS (redundant with IndexedDB)
+- [x] **Daily VFS snapshots:**
+  - Full .magma export once per day
+  - Stored in `/home/.koma-snapshot-YYYY-MM-DD.magma`
+  - Automatic pruning (keep last 7 days)
+- [x] **VFS health checks:**
+  - Every 30 seconds
+  - Read/write verification
+  - Alerts user on failure
+- [x] **Memory pressure monitoring:**
+  - Every 10 seconds (Chrome only)
+  - Warns at 90% heap usage
+
+**Diagnostics:**
+- [x] **BootDiagnostics class:**
+  - Stage timing and status tracking
+  - Error and warning recording
+  - Browser environment info
+  - Storage and memory metrics
+  - Performance timing
+- [x] **Diagnostic reports:**
+  - Human-readable text format
+  - JSON format for debugging
+  - Downloadable from emergency mode
+  - Boot ID for issue tracking
+
+**Architecture Benefits:**
+- ✅ Proper initialization order (no race conditions)
+- ✅ Kernel timeout (30s, doesn't hang forever)
+- ✅ VFS corruption recovery (emergency mode)
+- ✅ Data preservation (session backups, daily snapshots)
+- ✅ Troubleshooting mode (safe mode)
+- ✅ Comprehensive diagnostics
+- ✅ User can always recover their data
+
+**Files Created:**
+- `src/boot/boot-manager.js` - Main orchestrator (380 lines)
+- `src/boot/preflight.js` - Pre-flight checks (280 lines)
+- `src/boot/diagnostics.js` - Boot logging and reports (400 lines)
+- `src/boot/emergency.js` - Recovery UI (480 lines)
+- `src/boot/health-monitor.js` - Background monitoring (420 lines)
+- `src/boot/safe-mode.js` - Safe boot mode (240 lines)
+- `docs/design/BOOT_SYSTEM.md` - Complete architecture documentation (606 lines)
+
+**Files Modified:**
+- `src/terminal.js` - Boot manager integration with feature flag
+
+**Design Document:**
+See [docs/design/BOOT_SYSTEM.md](../docs/design/BOOT_SYSTEM.md) for complete architecture, state machines, and recovery workflows.
+
+---
+
 ### 🔮 Phase 7: Package Management (Provenance)
 **Goal:** Fetch npm modules from ESM CDNs
 
@@ -1388,7 +1488,7 @@ if (answer === 'y') {
 
 ## Current Status
 
-**We are here:** ✅ Phase 6.5 complete (Interactive Input) - ready to start Phase 7 (Package Management)
+**We are here:** ✅ Phase 6.6 complete (Slate Hardening - Boot System) - ready to start Phase 7 (Package Management)
 
 **What works right now:**
 - Beautiful terminal with industrial aesthetic
@@ -1586,4 +1686,4 @@ koma/
 
 ---
 
-**Last Updated:** 2025-11-11 (Phase 6.5 complete - Interactive Input and Schist Lisp fully implemented! Added `readLine()` API for interactive input, made Schist evaluator fully async with `read()`, `write()`, `print()`, `display()`, `newline()` I/O primitives. Achieved true self-hosting - Schist can interpret itself! Created examples/schist-repl.scm demonstrating Maxwell's Equations of Software. 48 man pages total. Ready to begin Phase 7 - Package Management!)
+**Last Updated:** 2025-11-11 (Phase 6.6 complete - Slate Hardening! Implemented production-grade boot system with 5-stage boot process, pre-flight checks, emergency recovery mode, safe mode, health monitoring (session backups + daily VFS snapshots), and comprehensive diagnostics. Metamorphic transformation complete - Shale hardened into Slate under pressure. Ready to begin Phase 7 - Package Management!)

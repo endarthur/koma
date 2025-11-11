@@ -12,6 +12,8 @@ Koma is a self-contained automation workstation that runs entirely in your brows
 - **Cron scheduler** for automation
 - **CodeMirror editor** (`vein` command)
 - **Man pages** for all commands
+- **Production-grade boot system** (Slate Hardening)
+- **Emergency recovery** and safe mode
 - **No servers required** after initial load
 
 ## 🚀 Quick Start
@@ -72,13 +74,49 @@ schist -i                         # Interactive REPL
 schist examples/schist-repl.scm   # Schist interpreting itself!
 ```
 
+## 🛡️ Boot System (Slate Hardening)
+
+Koma features a production-grade boot system with error recovery and health monitoring:
+
+**5-Stage Boot Process:**
+1. **Pre-flight** - Browser capability checks (IndexedDB, Web Workers, storage quota)
+2. **Kernel** - Olivine initialization with timeout and VFS verification
+3. **UI** - Editor and terminal setup
+4. **Environment** - Tab restoration and .komarc loading
+5. **Monitoring** - Background health checks
+
+**Error Recovery:**
+- **Emergency Mode** - When kernel fails, upload .magma backups to restore VFS directly via IndexedDB
+- **Safe Mode** - Minimal boot for troubleshooting (add `?safemode` to URL)
+  - Skips .komarc execution
+  - Disables health monitoring
+  - Single tab only (no restoration)
+
+**Health Monitoring:**
+- **Session backups** every 30s (tabs, history, current input)
+- **Daily VFS snapshots** as .magma files (keep last 7 days)
+- **VFS health checks** every 30s (read/write verification)
+- **Memory pressure monitoring** (Chrome only)
+
+**Diagnostics:**
+- Comprehensive boot logging with timing
+- Downloadable diagnostic reports (JSON/text)
+- Browser environment detection
+- Feature availability checks
+
+See [docs/design/BOOT_SYSTEM.md](docs/design/BOOT_SYSTEM.md) for complete architecture.
+
 ## 📖 Project Structure
 
 ```
 koma/
 ├── index.html              # Entry point
+├── kmt.py                  # KMT archive creator (external tool)
+├── examples.kmt            # Schist examples archive
 ├── src/
+│   ├── terminal.js         # Main entry point
 │   ├── shell.js            # Shell parser and executor
+│   ├── boot/               # Boot system (Slate Hardening)
 │   ├── commands/           # Built-in commands
 │   ├── kernel/             # Olivine (Web Worker kernel)
 │   ├── stdlib/             # Standard library (fs, http, path, args)
@@ -90,9 +128,11 @@ koma/
 │   ├── ROADMAP.md          # High-level overview
 │   ├── DEVELOPMENT.md      # Coding patterns
 │   ├── development_notes/  # Detailed phase docs
-│   ├── man/                # Man page sources (markdown)
+│   ├── man/                # Man page sources (51 pages)
 │   └── lore/               # Philosophy and stories
-└── tests/                  # Test suite (coming in Phase 6)
+├── examples/
+│   └── *.scm               # Schist Lisp example programs
+└── tests/                  # Test suite (Phase 6+)
 ```
 
 ## 🛠️ Technology
@@ -137,6 +177,36 @@ npm run test:watch
 # Coverage report
 npm run test:coverage
 ```
+
+## 📦 KMT Archive Tool
+
+**Create portable KMT archives outside of Koma:**
+
+```bash
+# Create KMT archive from directory (relative paths - portable)
+python kmt.py pack examples/ examples.kmt --label "Schist Examples"
+
+# Create with absolute paths
+python kmt.py pack /home/project project.kmt --absolute
+
+# Force compression or disable it
+python kmt.py pack data/ data.kmt --compress
+python kmt.py pack small/ small.kmt --no-compress
+```
+
+**Use cases:**
+- **Ship examples** with your project (`examples.kmt` included!)
+- **Pre-package content** for distribution
+- **Build automation** - create archives from CI/CD
+
+**Extract in Koma:**
+```bash
+# In Koma shell
+kmt unpack examples.kmt /home/examples
+kmt list examples.kmt
+```
+
+See `man kmt(1)` and `man kmt(5)` for complete documentation.
 
 ## 🗺️ Roadmap
 
