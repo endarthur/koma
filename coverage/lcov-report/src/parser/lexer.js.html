@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">78.08% </span>
+                <span class="strong">75% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>335/429</span>
+                <span class='fraction'>342/456</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>58/58</span>
+                <span class='fraction'>62/62</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">78.08% </span>
+                <span class="strong">75% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>335/429</span>
+                <span class='fraction'>342/456</span>
             </div>
         
             
@@ -492,7 +492,36 @@
 <a name='L427'></a><a href='#L427'>427</a>
 <a name='L428'></a><a href='#L428'>428</a>
 <a name='L429'></a><a href='#L429'>429</a>
-<a name='L430'></a><a href='#L430'>430</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">8x</span>
+<a name='L430'></a><a href='#L430'>430</a>
+<a name='L431'></a><a href='#L431'>431</a>
+<a name='L432'></a><a href='#L432'>432</a>
+<a name='L433'></a><a href='#L433'>433</a>
+<a name='L434'></a><a href='#L434'>434</a>
+<a name='L435'></a><a href='#L435'>435</a>
+<a name='L436'></a><a href='#L436'>436</a>
+<a name='L437'></a><a href='#L437'>437</a>
+<a name='L438'></a><a href='#L438'>438</a>
+<a name='L439'></a><a href='#L439'>439</a>
+<a name='L440'></a><a href='#L440'>440</a>
+<a name='L441'></a><a href='#L441'>441</a>
+<a name='L442'></a><a href='#L442'>442</a>
+<a name='L443'></a><a href='#L443'>443</a>
+<a name='L444'></a><a href='#L444'>444</a>
+<a name='L445'></a><a href='#L445'>445</a>
+<a name='L446'></a><a href='#L446'>446</a>
+<a name='L447'></a><a href='#L447'>447</a>
+<a name='L448'></a><a href='#L448'>448</a>
+<a name='L449'></a><a href='#L449'>449</a>
+<a name='L450'></a><a href='#L450'>450</a>
+<a name='L451'></a><a href='#L451'>451</a>
+<a name='L452'></a><a href='#L452'>452</a>
+<a name='L453'></a><a href='#L453'>453</a>
+<a name='L454'></a><a href='#L454'>454</a>
+<a name='L455'></a><a href='#L455'>455</a>
+<a name='L456'></a><a href='#L456'>456</a>
+<a name='L457'></a><a href='#L457'>457</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
@@ -821,6 +850,31 @@
 <span class="cline-any cline-yes">61x</span>
 <span class="cline-any cline-yes">61x</span>
 <span class="cline-any cline-yes">849x</span>
+<span class="cline-any cline-yes">849x</span>
+<span class="cline-any cline-yes">910x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">849x</span>
+<span class="cline-any cline-yes">849x</span>
+<span class="cline-any cline-yes">910x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-yes">849x</span>
 <span class="cline-any cline-yes">910x</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -943,6 +997,8 @@ export const TokenType = {
   REDIRECT_IN: 'REDIRECT_IN',      // &lt;
   REDIRECT_OUT: 'REDIRECT_OUT',    // &gt;
   REDIRECT_APPEND: 'REDIRECT_APPEND', // &gt;&gt;
+  LPAREN: 'LPAREN',                // (
+  RPAREN: 'RPAREN',                // )
 &nbsp;
   // Assignment
   ASSIGNMENT: 'ASSIGNMENT',        // NAME=value
@@ -1263,6 +1319,31 @@ export class Lexer {
 <span class="cstat-no" title="statement not covered" >        continue;</span>
 <span class="cstat-no" title="statement not covered" >      }</span>
 &nbsp;
+      // Parentheses (for Schist s-expressions)
+      if (char === '(') {
+<span class="cstat-no" title="statement not covered" >        this.advance();</span>
+<span class="cstat-no" title="statement not covered" >        this.tokens.push(new Token(</span>
+<span class="cstat-no" title="statement not covered" >          TokenType.LPAREN,</span>
+<span class="cstat-no" title="statement not covered" >          '(',</span>
+<span class="cstat-no" title="statement not covered" >          startPos,</span>
+<span class="cstat-no" title="statement not covered" >          startLine,</span>
+<span class="cstat-no" title="statement not covered" >          startCol</span>
+<span class="cstat-no" title="statement not covered" >        ));</span>
+<span class="cstat-no" title="statement not covered" >        continue;</span>
+<span class="cstat-no" title="statement not covered" >      }</span>
+&nbsp;
+      if (char === ')') {
+<span class="cstat-no" title="statement not covered" >        this.advance();</span>
+<span class="cstat-no" title="statement not covered" >        this.tokens.push(new Token(</span>
+<span class="cstat-no" title="statement not covered" >          TokenType.RPAREN,</span>
+<span class="cstat-no" title="statement not covered" >          ')',</span>
+<span class="cstat-no" title="statement not covered" >          startPos,</span>
+<span class="cstat-no" title="statement not covered" >          startLine,</span>
+<span class="cstat-no" title="statement not covered" >          startCol</span>
+<span class="cstat-no" title="statement not covered" >        ));</span>
+<span class="cstat-no" title="statement not covered" >        continue;</span>
+<span class="cstat-no" title="statement not covered" >      }</span>
+&nbsp;
       // Redirect operators
       if (char === '&lt;') {
         this.advance();
@@ -1357,7 +1438,7 @@ export function tokenize(input) {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-11-11T02:08:39.568Z
+                at 2025-11-11T04:51:04.500Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

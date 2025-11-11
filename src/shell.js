@@ -340,12 +340,12 @@ export class Shell {
         // Create context based on pipeline position
         let context;
         if (hasOutputRedirect) {
-          context = createRedirectedContext(this.term, stdin);
+          context = createRedirectedContext(this.term, stdin, this);
         } else if (!isLastStage) {
-          context = createPipedContext(this.term, stdin);
+          context = createPipedContext(this.term, stdin, this);
         } else {
           // Last stage with no redirect - buffer output then write to terminal
-          context = createPipedContext(this.term, stdin);
+          context = createPipedContext(this.term, stdin, this);
         }
 
         // Execute command with context

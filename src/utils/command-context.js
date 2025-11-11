@@ -141,11 +141,13 @@ export function createTerminalContext(term, shell = null) {
  * Create a command context for piped execution
  * @param {object} term - Terminal instance
  * @param {string} stdin - Input from previous command
+ * @param {object} [shell] - Shell instance for interactive features
  * @returns {CommandContext} Context for piped execution
  */
-export function createPipedContext(term, stdin) {
+export function createPipedContext(term, stdin, shell = null) {
   return new CommandContext({
     term,
+    shell,
     stdin,
     isPiped: true,
     isRedirected: false
@@ -156,11 +158,13 @@ export function createPipedContext(term, stdin) {
  * Create a command context for redirected output
  * @param {object} term - Terminal instance
  * @param {string} stdin - Input data
+ * @param {object} [shell] - Shell instance for interactive features
  * @returns {CommandContext} Context for redirected execution
  */
-export function createRedirectedContext(term, stdin = '') {
+export function createRedirectedContext(term, stdin = '', shell = null) {
   return new CommandContext({
     term,
+    shell,
     stdin,
     isPiped: false,
     isRedirected: true
