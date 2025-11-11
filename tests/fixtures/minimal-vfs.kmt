@@ -1,0 +1,16 @@
+{
+  "format": "kmt",
+  "version": "1.0",
+  "created": "2025-11-10T21:16:52.273381Z",
+  "label": "minimal-vfs",
+  "compression": "none",
+  "checksum": {
+    "uncompressed": "fixture-checksum"
+  },
+  "stats": {
+    "files": 0,
+    "directories": 1,
+    "size": 118
+  },
+  "data": "W3sicGF0aCI6Ii9ob21lIiwidHlwZSI6ImRpcmVjdG9yeSIsImNyZWF0ZWQiOiIyMDI1LTExLTEwVDIxOjE2OjUyLjI3MzM4MVoiLCJtb2RpZmllZCI6IjIwMjUtMTEtMTBUMjE6MTY6NTIuMjczMzgxWiJ9XQ=="
+}

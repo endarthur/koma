@@ -13,15 +13,25 @@ const path = createPathModule();
  * Resolve a path relative to current working directory
  * @param {string} inputPath - Path to resolve (can be absolute or relative)
  * @param {string} cwd - Current working directory
+ * @param {string} [homeDir='/home'] - Home directory for tilde expansion
  * @returns {string} Absolute path
  *
  * @example
  * resolvePath('file.txt', '/home/user') // '/home/user/file.txt'
  * resolvePath('/etc/config', '/home/user') // '/etc/config'
  * resolvePath('../admin', '/home/user') // '/home/admin'
+ * resolvePath('~/file.txt', '/tmp', '/home') // '/home/file.txt'
  */
-export function resolvePath(inputPath, cwd) {
+export function resolvePath(inputPath, cwd, homeDir = '/home') {
   if (!inputPath) return cwd;
+
+  // Handle tilde expansion
+  if (inputPath === '~') {
+    return homeDir;
+  }
+  if (inputPath.startsWith('~/')) {
+    inputPath = path.join(homeDir, inputPath.slice(2));
+  }
 
   if (path.isAbsolute(inputPath)) {
     return path.normalize(inputPath);

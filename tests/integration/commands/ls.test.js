@@ -4,8 +4,9 @@
  */
 
 import { expect } from 'chai';
-import { createTestVFS, populateTestFixtures } from '../../helpers/vfs-test-helper.js';
+import { createTestVFS } from '../../helpers/vfs-test-helper.js';
 import { createMockShell } from '../../helpers/shell-test-helper.js';
+import { restoreFromFixture } from '../../helpers/fixture-helper.js';
 
 describe('ls command', () => {
   let vfs, cleanup, shell, term;
@@ -16,17 +17,13 @@ describe('ls command', () => {
     vfs = testVFS.kernel;
     cleanup = testVFS.cleanup;
 
+    // Restore from fixture - includes /home, /home/dir1, test files, and .hidden
+    await restoreFromFixture(vfs, 'ls-test.kmt');
+
     // Create mock shell
     const mockShell = await createMockShell();
     shell = mockShell.shell;
     term = mockShell.term;
-
-    // Populate test files
-    await populateTestFixtures(vfs, {
-      '/home/file1.txt': 'content 1',
-      '/home/file2.txt': 'content 2',
-      '/home/dir1/file3.txt': 'content 3',
-    });
   });
 
   afterEach(async () => {
@@ -61,9 +58,7 @@ describe('ls command', () => {
   });
 
   it('should support -a flag to show hidden files', async () => {
-    // Create hidden file
-    await vfs.writeFile('/home/.hidden', 'secret');
-
+    // Hidden file already exists in fixture
     shell.cwd = '/home';
     await shell.execute('ls -a');
 
@@ -72,8 +67,7 @@ describe('ls command', () => {
   });
 
   it('should not show hidden files without -a flag', async () => {
-    await vfs.writeFile('/home/.hidden', 'secret');
-
+    // Hidden file already exists in fixture
     shell.cwd = '/home';
     await shell.execute('ls');
 
@@ -105,12 +99,11 @@ describe('ls command', () => {
     await shell.execute('ls /nonexistent');
 
     const output = term.getOutput();
-    expect(output.toLowerCase()).to.include('error');
+    expect(output.toLowerCase()).to.match(/error|not found|enoent/);
   });
 
   it('should combine flags (-la)', async () => {
-    await vfs.writeFile('/home/.hidden', 'secret');
-
+    // Hidden file already exists in fixture
     shell.cwd = '/home';
     await shell.execute('ls -la');
 

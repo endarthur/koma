@@ -1,0 +1,16 @@
+{
+  "format": "kmt",
+  "version": "1.0",
+  "created": "2025-11-10T21:16:52.273381Z",
+  "label": "empty-vfs",
+  "compression": "none",
+  "checksum": {
+    "uncompressed": "fixture-checksum"
+  },
+  "stats": {
+    "files": 0,
+    "directories": 0,
+    "size": 2
+  },
+  "data": "W10="
+}

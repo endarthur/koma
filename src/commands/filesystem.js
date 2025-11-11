@@ -78,7 +78,7 @@ export function registerFilesystemCommands(shell, editor = null) {
       if (!inputPath || inputPath === '~') {
         targetPath = shell.env.HOME;
       } else {
-        targetPath = resolvePath(inputPath, shell.cwd);
+        targetPath = resolvePath(inputPath, shell.cwd, shell.env.HOME);
       }
 
       // Check if path exists and is a directory
@@ -132,10 +132,22 @@ export function registerFilesystemCommands(shell, editor = null) {
 
       // Default to current directory if no path specified
       const targetPath = parsed.positional.length > 0
-        ? resolvePath(parsed.positional[0], shell.cwd)
+        ? resolvePath(parsed.positional[0], shell.cwd, shell.env.HOME)
         : shell.cwd;
 
-      const entries = await withTimeout(kernel.readdir(targetPath), 'ls');
+      // Check if path exists first
+      const stat = await withTimeout(kernel.stat(targetPath), 'ls');
+      if (stat.type !== 'directory') {
+        ctx.writeln(`\x1b[31mls: ${targetPath}: Not a directory\x1b[0m`);
+        return;
+      }
+
+      let entries = await withTimeout(kernel.readdir(targetPath), 'ls');
+
+      // Filter hidden files unless -a flag is present
+      if (!parsed.flags.all) {
+        entries = entries.filter(entry => !entry.name.startsWith('.'));
+      }
 
       if (entries.length === 0) {
         ctx.writeln('');
@@ -170,7 +182,7 @@ export function registerFilesystemCommands(shell, editor = null) {
         }
       }
     } catch (error) {
-      showError(shell.term, 'ls', error.message);
+      ctx.writeln(`\x1b[31mls: ${error.message}\x1b[0m`);
     }
   }, {
     description: 'List directory contents',
@@ -196,9 +208,17 @@ export function registerFilesystemCommands(shell, editor = null) {
 
     const parsed = argparse.parse(args, schema);
 
+    // If no files provided, read from stdin if available
     if (parsed.positional.length === 0) {
-      showError(shell.term, 'cat', 'missing file operand');
-      return;
+      if (ctx.hasStdin()) {
+        // Read from stdin
+        const lines = ctx.getStdinLines();
+        lines.forEach(line => ctx.writeln(line));
+        return;
+      } else {
+        showError(shell.term, 'cat', 'missing file operand');
+        return;
+      }
     }
 
     try {
@@ -206,7 +226,7 @@ export function registerFilesystemCommands(shell, editor = null) {
 
       // Process each file in order
       for (const fileArg of parsed.positional) {
-        const filePath = resolvePath(fileArg, shell.cwd);
+        const filePath = resolvePath(fileArg, shell.cwd, shell.env.HOME);
         const content = await withTimeout(kernel.readFile(filePath), 'cat', 'read');
 
         // Split by newlines and write each line separately
@@ -222,7 +242,10 @@ export function registerFilesystemCommands(shell, editor = null) {
   });
 
   // Create directory
-  shell.registerCommand('mkdir', async (args, shell) => {
+  shell.registerCommand('mkdir', async (args, shell, context) => {
+    const { createTerminalContext } = await import('../utils/command-context.js');
+    const ctx = context || createTerminalContext(shell.term);
+
     const schema = {
       description: 'Create a new directory',
       positional: { description: '<directory>' },
@@ -237,16 +260,16 @@ export function registerFilesystemCommands(shell, editor = null) {
     const parsed = argparse.parse(args, schema);
 
     if (parsed.positional.length === 0) {
-      showError(shell.term, 'mkdir', 'missing operand');
+      ctx.writeln(`\x1b[31mmkdir: missing operand\x1b[0m`);
       return;
     }
 
     try {
       const kernel = await kernelClient.getKernel();
-      const dirPath = resolvePath(parsed.positional[0], shell.cwd);
+      const dirPath = resolvePath(parsed.positional[0], shell.cwd, shell.env.HOME);
       await withTimeout(kernel.mkdir(dirPath), 'mkdir', 'write');
     } catch (error) {
-      showError(shell.term, 'mkdir', error.message);
+      ctx.writeln(`\x1b[31mmkdir: ${error.message}\x1b[0m`);
     }
   }, {
     description: 'Create new directory',
@@ -275,7 +298,7 @@ export function registerFilesystemCommands(shell, editor = null) {
 
     try {
       const kernel = await kernelClient.getKernel();
-      const filePath = resolvePath(parsed.positional[0], shell.cwd);
+      const filePath = resolvePath(parsed.positional[0], shell.cwd, shell.env.HOME);
       await withTimeout(kernel.writeFile(filePath, ''), 'touch', 'write');
     } catch (error) {
       showError(shell.term, 'touch', error.message);
@@ -286,13 +309,20 @@ export function registerFilesystemCommands(shell, editor = null) {
   });
 
   // Remove file or directory
-  shell.registerCommand('rm', async (args, shell) => {
+  shell.registerCommand('rm', async (args, shell, context) => {
+    const { createTerminalContext } = await import('../utils/command-context.js');
+    const ctx = context || createTerminalContext(shell.term);
+
     const schema = {
-      description: 'Remove files or empty directories',
-      positional: { description: '<file|directory>' },
+      description: 'Remove files or directories',
+      positional: { description: '<file|directory> [files...]' },
+      flags: {
+        'recursive': { short: 'r', description: 'Remove directories and their contents recursively' }
+      },
       examples: [
         { command: 'rm file.txt', description: 'Remove file.txt' },
-        { command: 'rm test/', description: 'Remove empty directory' }
+        { command: 'rm test/', description: 'Remove empty directory' },
+        { command: 'rm -r test/', description: 'Remove directory and all contents' }
       ]
     };
 
@@ -301,19 +331,39 @@ export function registerFilesystemCommands(shell, editor = null) {
     const parsed = argparse.parse(args, schema);
 
     if (parsed.positional.length === 0) {
-      showError(shell.term, 'rm', 'missing operand');
+      ctx.writeln(`\x1b[31mrm: missing operand\x1b[0m`);
       return;
     }
 
     try {
       const kernel = await kernelClient.getKernel();
-      const targetPath = resolvePath(parsed.positional[0], shell.cwd);
-      await withTimeout(kernel.unlink(targetPath), 'rm', 'write');
+      const recursive = parsed.flags.recursive;
+
+      for (const target of parsed.positional) {
+        const targetPath = resolvePath(target, shell.cwd, shell.env.HOME);
+
+        if (recursive) {
+          // Check if it's a directory first
+          try {
+            const stat = await kernel.stat(targetPath);
+            if (stat.type === 'directory') {
+              await withTimeout(kernel.unlinkRecursive(targetPath), 'rm', 'write');
+            } else {
+              await withTimeout(kernel.unlink(targetPath), 'rm', 'write');
+            }
+          } catch (error) {
+            // If stat fails, try regular unlink anyway
+            await withTimeout(kernel.unlink(targetPath), 'rm', 'write');
+          }
+        } else {
+          await withTimeout(kernel.unlink(targetPath), 'rm', 'write');
+        }
+      }
     } catch (error) {
-      showError(shell.term, 'rm', error.message);
+      ctx.writeln(`\x1b[31mrm: ${error.message}\x1b[0m`);
     }
   }, {
-    description: 'Remove file or directory',
+    description: 'Remove files or directories',
     category: 'filesystem'
   });
 
@@ -340,9 +390,21 @@ export function registerFilesystemCommands(shell, editor = null) {
 
     try {
       const kernel = await kernelClient.getKernel();
-      const srcPath = resolvePath(parsed.positional[0], shell.cwd);
-      const destPath = resolvePath(parsed.positional[1], shell.cwd);
-      await kernel.copyFile(srcPath, destPath);
+      const srcPath = resolvePath(parsed.positional[0], shell.cwd, shell.env.HOME);
+      let destPath = resolvePath(parsed.positional[1], shell.cwd, shell.env.HOME);
+
+      // If destination is a directory, append source filename
+      try {
+        const destStat = await kernel.stat(destPath);
+        if (destStat.type === 'directory') {
+          const srcFilename = path.basename(srcPath);
+          destPath = path.join(destPath, srcFilename);
+        }
+      } catch (e) {
+        // Destination doesn't exist, use as-is (creating new file)
+      }
+
+      await withTimeout(kernel.copyFile(srcPath, destPath), 'cp', 'write');
     } catch (error) {
       showError(shell.term, 'cp', error.message);
     }
@@ -375,9 +437,21 @@ export function registerFilesystemCommands(shell, editor = null) {
 
     try {
       const kernel = await kernelClient.getKernel();
-      const srcPath = resolvePath(parsed.positional[0], shell.cwd);
-      const destPath = resolvePath(parsed.positional[1], shell.cwd);
-      await kernel.move(srcPath, destPath);
+      const srcPath = resolvePath(parsed.positional[0], shell.cwd, shell.env.HOME);
+      let destPath = resolvePath(parsed.positional[1], shell.cwd, shell.env.HOME);
+
+      // If destination is a directory, append source filename
+      try {
+        const destStat = await kernel.stat(destPath);
+        if (destStat.type === 'directory') {
+          const srcFilename = path.basename(srcPath);
+          destPath = path.join(destPath, srcFilename);
+        }
+      } catch (e) {
+        // Destination doesn't exist, use as-is (renaming)
+      }
+
+      await withTimeout(kernel.move(srcPath, destPath), 'mv', 'write');
     } catch (error) {
       showError(shell.term, 'mv', error.message);
     }
@@ -521,7 +595,7 @@ export function registerFilesystemCommands(shell, editor = null) {
         lines = ctx.getStdinLines();
       } else if (parsed.positional.length >= 2) {
         // Reading from file
-        const filePath = resolvePath(parsed.positional[1], shell.cwd);
+        const filePath = resolvePath(parsed.positional[1], shell.cwd, shell.env.HOME);
         const kernel = await kernelClient.getKernel();
         const content = await kernel.readFile(filePath);
         lines = content.split('\n');
@@ -667,7 +741,7 @@ export function registerFilesystemCommands(shell, editor = null) {
         content = ctx.stdin;
       } else if (parsed.positional.length > 0) {
         const kernel = await kernelClient.getKernel();
-        const filePath = resolvePath(parsed.positional[0], shell.cwd);
+        const filePath = resolvePath(parsed.positional[0], shell.cwd, shell.env.HOME);
         content = await kernel.readFile(filePath);
         filename = parsed.positional[0];
       } else {
@@ -772,7 +846,7 @@ export function registerFilesystemCommands(shell, editor = null) {
         }
 
         // Resolve path
-        const targetPath = resolvePath(parsed.positional[0], shell.cwd);
+        const targetPath = resolvePath(parsed.positional[0], shell.cwd, shell.env.HOME);
 
         // Open file in editor
         await editor.openFile(targetPath, parsed.flags.force);
@@ -812,7 +886,7 @@ export function registerFilesystemCommands(shell, editor = null) {
 
     try {
       const kernel = await kernelClient.getKernel();
-      const searchPath = parsed.positional[0] ? resolvePath(parsed.positional[0], shell.cwd) : shell.cwd;
+      const searchPath = parsed.positional[0] ? resolvePath(parsed.positional[0], shell.cwd, shell.env.HOME) : shell.cwd;
       const namePattern = parsed.options.name;
       const typeFilter = parsed.options.type;
 
@@ -905,7 +979,7 @@ export function registerFilesystemCommands(shell, editor = null) {
         lines = ctx.getStdinLines();
       } else if (parsed.positional.length > 0) {
         const kernel = await kernelClient.getKernel();
-        const filePath = resolvePath(parsed.positional[0], shell.cwd);
+        const filePath = resolvePath(parsed.positional[0], shell.cwd, shell.env.HOME);
         const content = await kernel.readFile(filePath);
         lines = content.split('\n');
       } else {
@@ -964,7 +1038,7 @@ export function registerFilesystemCommands(shell, editor = null) {
         lines = ctx.getStdinLines();
       } else if (parsed.positional.length > 0) {
         const kernel = await kernelClient.getKernel();
-        const filePath = resolvePath(parsed.positional[0], shell.cwd);
+        const filePath = resolvePath(parsed.positional[0], shell.cwd, shell.env.HOME);
         const content = await kernel.readFile(filePath);
         lines = content.split('\n');
       } else {
@@ -1051,7 +1125,7 @@ export function registerFilesystemCommands(shell, editor = null) {
 
       // Write to each file
       for (const fileArg of parsed.positional) {
-        const filePath = resolvePath(fileArg, shell.cwd);
+        const filePath = resolvePath(fileArg, shell.cwd, shell.env.HOME);
 
         if (parsed.flags.append) {
           // Append mode

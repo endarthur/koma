@@ -58,8 +58,9 @@ export default {
   watch: false,
 
   // Concurrency settings
-  concurrentBrowsers: 2,
-  concurrency: 4,
+  // Run tests serially to avoid VFS state interference
+  concurrentBrowsers: 1,
+  concurrency: 1,
 
   // Test runner plugins (can add more)
   plugins: [],

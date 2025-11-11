@@ -347,7 +347,7 @@ export function registerShellCommands(shell, tabManager = null) {
 
     try {
       const kernel = await kernelClient.getKernel();
-      const scriptPath = resolvePath(parsed.positional[0], shell.cwd);
+      const scriptPath = resolvePath(parsed.positional[0], shell.cwd, shell.env.HOME);
       const content = await kernel.readFile(scriptPath);
 
       // Split into lines and filter
@@ -448,7 +448,7 @@ export function registerShellCommands(shell, tabManager = null) {
       }
     }
 
-    const outputPath = resolvePath(filename, shell.cwd);
+    const outputPath = resolvePath(filename, shell.cwd, shell.env.HOME);
 
     try {
       if (!parsed.flags.quiet) {
@@ -531,7 +531,7 @@ export function registerShellCommands(shell, tabManager = null) {
       const kernel = await kernelClient.getKernel();
 
       // Resolve script path
-      const scriptPath = resolvePath(parsed.positional[0], shell.cwd);
+      const scriptPath = resolvePath(parsed.positional[0], shell.cwd, shell.env.HOME);
 
       // Extract script arguments (everything after script path)
       const scriptArgs = parsed.positional.slice(1);
@@ -723,7 +723,7 @@ export function registerShellCommands(shell, tabManager = null) {
       const schedule = parsed.positional[0];
 
       // Second arg is script path
-      const scriptPath = resolvePath(parsed.positional[1], shell.cwd);
+      const scriptPath = resolvePath(parsed.positional[1], shell.cwd, shell.env.HOME);
 
       const job = await kernel.crontab(schedule, scriptPath);
 
@@ -826,5 +826,500 @@ export function registerShellCommands(shell, tabManager = null) {
   }, {
     description: 'Remove a scheduled cron job',
     category: 'process'
+  });
+
+  // ========== Backup/Restore Commands ==========
+
+  /**
+   * Utility: Compute SHA-256 hash of data
+   */
+  async function computeSHA256(data) {
+    const encoder = new TextEncoder();
+    const dataBuffer = encoder.encode(data);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', dataBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  /**
+   * Utility: Compress string data using gzip
+   */
+  async function compressString(str) {
+    const encoder = new TextEncoder();
+    const bytes = encoder.encode(str);
+    const stream = new Blob([bytes]).stream();
+    const compressedStream = stream.pipeThrough(new CompressionStream('gzip'));
+    const compressedBlob = await new Response(compressedStream).blob();
+    const compressedBytes = new Uint8Array(await compressedBlob.arrayBuffer());
+    return String.fromCharCode(...compressedBytes);
+  }
+
+  /**
+   * Utility: Decompress gzip data to string
+   */
+  async function decompressString(compressedStr) {
+    const compressedBytes = Uint8Array.from(compressedStr, c => c.charCodeAt(0));
+    const stream = new Blob([compressedBytes]).stream();
+    const decompressedStream = stream.pipeThrough(new DecompressionStream('gzip'));
+    const decompressedBlob = await new Response(decompressedStream).blob();
+    const text = await decompressedBlob.text();
+    return text;
+  }
+
+  /**
+   * Utility: UTF-8 safe base64 encoding
+   */
+  function utf8ToBase64(str) {
+    // Convert UTF-8 string to base64 safely
+    // Use TextEncoder to properly handle UTF-8, then convert bytes to binary string
+    const encoder = new TextEncoder();
+    const bytes = encoder.encode(str);
+    const binaryString = Array.from(bytes, byte => String.fromCharCode(byte)).join('');
+    return btoa(binaryString);
+  }
+
+  /**
+   * Utility: UTF-8 safe base64 decoding
+   */
+  function base64ToUtf8(b64) {
+    // Decode base64 to binary string, then convert to UTF-8
+    const binaryString = atob(b64);
+    const bytes = Uint8Array.from(binaryString, char => char.charCodeAt(0));
+    const decoder = new TextDecoder();
+    return decoder.decode(bytes);
+  }
+
+  /**
+   * Utility: Recursively get all VFS entries
+   */
+  async function getAllVFSEntries(kernel, path = '/', excludePaths = []) {
+    const entries = [];
+
+    try {
+      const dirEntries = await kernel.readdir(path);
+
+      for (const entry of dirEntries) {
+        const fullPath = path === '/' ? `/${entry.name}` : `${path}/${entry.name}`;
+
+        // Skip excluded paths
+        if (excludePaths.some(ex => fullPath.startsWith(ex))) {
+          continue;
+        }
+
+        if (entry.type === 'directory') {
+          entries.push({
+            path: fullPath,
+            type: 'directory',
+            created: entry.created,
+            modified: entry.modified
+          });
+
+          // Recurse into subdirectories
+          const subEntries = await getAllVFSEntries(kernel, fullPath, excludePaths);
+          entries.push(...subEntries);
+        } else if (entry.type === 'file') {
+          const content = await kernel.readFile(fullPath);
+          entries.push({
+            path: fullPath,
+            type: 'file',
+            size: entry.size,
+            created: entry.created,
+            modified: entry.modified,
+            content: content
+          });
+        }
+      }
+    } catch (error) {
+      // Skip directories we can't read
+    }
+
+    return entries;
+  }
+
+  // Backup - Create VFS backup as .kmt file
+  shell.registerCommand('backup', async (args, shell) => {
+    const schema = {
+      description: 'Create backup of VFS to Koma Magnetic Tape (.kmt) format',
+      positional: { description: '[label]' },
+      flags: {
+        'no-compress': { description: 'Disable compression' }
+      },
+      examples: [
+        { command: 'backup', description: 'Create compressed backup' },
+        { command: 'backup project-v1', description: 'Create backup with label' },
+        { command: 'backup --no-compress', description: 'Create uncompressed backup' }
+      ]
+    };
+
+    if (argparse.showHelp('backup', args, schema, shell.term)) return;
+    const parsed = argparse.parse(args, schema);
+
+    try {
+      const { kernelClient } = await import('../kernel/client.js');
+      const kernel = await kernelClient.getKernel();
+
+      shell.term.writeln('Creating backup...');
+
+      // Get all VFS entries except /mnt/backups/
+      const entries = await getAllVFSEntries(kernel, '/', ['/mnt/backups']);
+
+      // Build entries JSON
+      const entriesJSON = JSON.stringify(entries);
+
+      // Generate timestamp for filename
+      const now = new Date();
+      const timestamp = now.toISOString().replace(/[:.]/g, '-').slice(0, -5);
+      const label = parsed.positional[0] || 'backup';
+      const filename = `backup-${timestamp}-${label}.kmt`;
+
+      // Determine if we should compress
+      const shouldCompress = !parsed.flags['no-compress'];
+
+      let data, compressedHash, uncompressedHash, compressedSize, stats;
+
+      if (shouldCompress) {
+        shell.term.writeln('Compressing data...');
+
+        // Hash uncompressed
+        uncompressedHash = await computeSHA256(entriesJSON);
+
+        // Compress
+        const compressed = await compressString(entriesJSON);
+
+        // Hash compressed
+        compressedHash = await computeSHA256(compressed);
+
+        // Base64 encode
+        data = btoa(compressed);
+        compressedSize = compressed.length;
+
+        stats = {
+          files: entries.filter(e => e.type === 'file').length,
+          directories: entries.filter(e => e.type === 'directory').length,
+          size_uncompressed: entriesJSON.length,
+          size_compressed: compressedSize,
+          compression_ratio: `${(100 - (compressedSize / entriesJSON.length * 100)).toFixed(1)}%`
+        };
+      } else {
+        // No compression
+        uncompressedHash = await computeSHA256(entriesJSON);
+        data = utf8ToBase64(entriesJSON);
+
+        stats = {
+          files: entries.filter(e => e.type === 'file').length,
+          directories: entries.filter(e => e.type === 'directory').length,
+          size: entriesJSON.length
+        };
+      }
+
+      // Build backup structure
+      const backup = {
+        format: 'kmt',
+        version: '1.0',
+        created: now.toISOString(),
+        label: label,
+        compression: shouldCompress ? 'gzip' : 'none',
+        checksum: {
+          uncompressed: `sha256:${uncompressedHash}`,
+          ...(shouldCompress && { compressed: `sha256:${compressedHash}` })
+        },
+        stats: stats,
+        data: data
+      };
+
+      // Convert to JSON
+      const backupJSON = JSON.stringify(backup, null, 2);
+
+      // Create download
+      const blob = new Blob([backupJSON], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      // Show stats
+      shell.term.writeln('');
+      shell.term.writeln(`\x1b[32mBackup created: ${filename}\x1b[0m`);
+      shell.term.writeln(`  Files: ${stats.files}`);
+      shell.term.writeln(`  Directories: ${stats.directories}`);
+      if (shouldCompress) {
+        shell.term.writeln(`  Size: ${(stats.size_compressed / 1024).toFixed(1)} KB (compressed)`);
+        shell.term.writeln(`  Uncompressed: ${(stats.size_uncompressed / 1024).toFixed(1)} KB`);
+        shell.term.writeln(`  Compression: ${stats.compression_ratio}`);
+      } else {
+        shell.term.writeln(`  Size: ${(stats.size / 1024).toFixed(1)} KB`);
+      }
+      shell.term.writeln(`  Checksum: ${uncompressedHash.slice(0, 16)}...`);
+
+    } catch (error) {
+      shell.term.writeln(`\x1b[31merror: ${error.message}\x1b[0m`);
+    }
+  }, {
+    description: 'Create VFS backup (.kmt tape format)',
+    category: 'filesystem'
+  });
+
+  // Restore - Restore VFS from .kmt backup
+  shell.registerCommand('restore', async (args, shell) => {
+    const schema = {
+      description: 'Restore VFS from Koma Magnetic Tape (.kmt) backup',
+      positional: { description: '<file>' },
+      flags: {
+        'apply': { description: 'Apply staged backup' },
+        'now': { description: 'Verify and apply immediately (skip staging)' }
+      },
+      examples: [
+        { command: 'restore backup.kmt', description: 'Verify and stage backup' },
+        { command: 'restore backup.kmt --apply', description: 'Apply staged backup' },
+        { command: 'restore backup.kmt --now', description: 'Verify and apply immediately' }
+      ]
+    };
+
+    if (argparse.showHelp('restore', args, schema, shell.term)) return;
+    const parsed = argparse.parse(args, schema);
+
+    if (!parsed.positional[0]) {
+      shell.term.writeln('\x1b[31merror: missing backup file\x1b[0m');
+      return;
+    }
+
+    try {
+      const { kernelClient } = await import('../kernel/client.js');
+      const kernel = await kernelClient.getKernel();
+
+      const backupPath = parsed.positional[0].startsWith('/')
+        ? parsed.positional[0]
+        : `/mnt/backups/${parsed.positional[0]}`;
+
+      // If --apply, restore from staged backup
+      if (parsed.flags.apply) {
+        shell.term.writeln(`Restoring from ${backupPath}...`);
+
+        // Read backup file
+        const backupJSON = await kernel.readFile(backupPath);
+        const backup = JSON.parse(backupJSON);
+
+        // Decompress and parse entries
+        let entriesJSON;
+        if (backup.compression === 'gzip') {
+          const compressedData = atob(backup.data);
+          entriesJSON = await decompressString(compressedData);
+        } else {
+          entriesJSON = base64ToUtf8(backup.data);
+        }
+
+        const entries = JSON.parse(entriesJSON);
+
+        // Clear VFS (except /mnt/backups/)
+        shell.term.writeln('Clearing current VFS...');
+        const topLevelDirs = await kernel.readdir('/');
+
+        for (const entry of topLevelDirs) {
+          const fullPath = `/${entry.name}`;
+
+          // Skip /mnt/backups/
+          if (fullPath.startsWith('/mnt/backups')) {
+            continue;
+          }
+
+          try {
+            if (entry.type === 'directory') {
+              await kernel.unlinkRecursive(fullPath);
+            } else {
+              await kernel.unlink(fullPath);
+            }
+          } catch (e) {
+            // Ignore errors
+          }
+        }
+
+        // Restore entries - Sort so directories come before files, and by path depth
+        shell.term.writeln('Restoring files...');
+        const sortedEntries = entries.slice().sort((a, b) => {
+          // Directories first
+          if (a.type === 'directory' && b.type !== 'directory') return -1;
+          if (a.type !== 'directory' && b.type === 'directory') return 1;
+          // Then by path depth (parent directories before children)
+          const aDepth = a.path.split('/').length;
+          const bDepth = b.path.split('/').length;
+          return aDepth - bDepth;
+        });
+
+        for (const entry of sortedEntries) {
+          if (entry.type === 'directory') {
+            try {
+              await kernel.mkdir(entry.path);
+            } catch (e) {
+              // Directory might exist
+            }
+          } else if (entry.type === 'file') {
+            await kernel.writeFile(entry.path, entry.content);
+          }
+        }
+
+        shell.term.writeln('');
+        shell.term.writeln(`\x1b[32mRestored ${backup.stats.files} files from ${backup.label}\x1b[0m`);
+        return;
+      }
+
+      // Otherwise, verify and stage (or apply with --now)
+      shell.term.writeln('Reading backup file...');
+
+      // For initial load, we need file input from user
+      // Create file input element
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.kmt,application/json';
+
+      input.onchange = async (e) => {
+        try {
+          const file = e.target.files[0];
+          if (!file) return;
+
+          const backupJSON = await file.text();
+          const backup = JSON.parse(backupJSON);
+
+          // Verify format
+          if (backup.format !== 'kmt') {
+            shell.term.writeln('\x1b[31merror: invalid backup format\x1b[0m');
+            shell.writePrompt();
+            return;
+          }
+
+          shell.term.writeln('Verifying backup...');
+
+          // Decompress if needed
+          let entriesJSON;
+          if (backup.compression === 'gzip') {
+            const compressedData = atob(backup.data);
+
+            // Verify compressed hash
+            const compressedHash = await computeSHA256(compressedData);
+            const expectedCompressed = backup.checksum.compressed.replace('sha256:', '');
+            if (compressedHash !== expectedCompressed) {
+              shell.term.writeln('\x1b[31merror: backup file is corrupted (compressed hash mismatch)\x1b[0m');
+              shell.writePrompt();
+              return;
+            }
+
+            entriesJSON = await decompressString(compressedData);
+          } else {
+            entriesJSON = base64ToUtf8(backup.data);
+          }
+
+          // Verify uncompressed hash
+          const uncompressedHash = await computeSHA256(entriesJSON);
+          const expectedUncompressed = backup.checksum.uncompressed.replace('sha256:', '');
+          if (uncompressedHash !== expectedUncompressed) {
+            shell.term.writeln('\x1b[31merror: backup data is corrupted (uncompressed hash mismatch)\x1b[0m');
+            shell.writePrompt();
+            return;
+          }
+
+          // Show metadata
+          shell.term.writeln('');
+          shell.term.writeln('\x1b[32m✓ Backup verified\x1b[0m');
+          shell.term.writeln('');
+          shell.term.writeln(`  Format: kmt v${backup.version}`);
+          shell.term.writeln(`  Created: ${backup.created}`);
+          shell.term.writeln(`  Label: ${backup.label}`);
+          shell.term.writeln(`  Files: ${backup.stats.files}`);
+          shell.term.writeln(`  Directories: ${backup.stats.directories}`);
+          if (backup.compression === 'gzip') {
+            shell.term.writeln(`  Size: ${(backup.stats.size_compressed / 1024).toFixed(1)} KB (compressed)`);
+            shell.term.writeln(`  Compression: ${backup.stats.compression_ratio}`);
+          } else {
+            shell.term.writeln(`  Size: ${(backup.stats.size / 1024).toFixed(1)} KB`);
+          }
+          shell.term.writeln(`  Checksum: ✓ Valid`);
+          shell.term.writeln('');
+
+          // If --now, apply immediately
+          if (parsed.flags.now) {
+            shell.term.writeln('Applying backup...');
+            const entries = JSON.parse(entriesJSON);
+
+            // Clear VFS (except /mnt/backups/)
+            const topLevelDirs = await kernel.readdir('/');
+
+            for (const entry of topLevelDirs) {
+              const fullPath = `/${entry.name}`;
+
+              // Skip /mnt/backups/
+              if (fullPath.startsWith('/mnt/backups')) {
+                continue;
+              }
+
+              try {
+                if (entry.type === 'directory') {
+                  await kernel.unlinkRecursive(fullPath);
+                } else {
+                  await kernel.unlink(fullPath);
+                }
+              } catch (e) {
+                // Ignore errors
+              }
+            }
+
+            // Restore - Sort entries by type and depth
+            const sortedEntries = entries.slice().sort((a, b) => {
+              // Directories first
+              if (a.type === 'directory' && b.type !== 'directory') return -1;
+              if (a.type !== 'directory' && b.type === 'directory') return 1;
+              // Then by path depth (parent directories before children)
+              const aDepth = a.path.split('/').length;
+              const bDepth = b.path.split('/').length;
+              return aDepth - bDepth;
+            });
+
+            for (const entry of sortedEntries) {
+              if (entry.type === 'directory') {
+                try {
+                  await kernel.mkdir(entry.path);
+                } catch (e) {
+                  // Directory might exist
+                }
+              } else if (entry.type === 'file') {
+                await kernel.writeFile(entry.path, entry.content);
+              }
+            }
+
+            shell.term.writeln(`\x1b[32mRestored ${backup.stats.files} files from ${backup.label}\x1b[0m`);
+          } else {
+            // Stage to /mnt/backups/
+            const backupFilename = file.name;
+            const stagePath = `/mnt/backups/${backupFilename}`;
+
+            // Ensure /mnt/backups exists
+            try {
+              await kernel.mkdir('/mnt/backups');
+            } catch (e) {
+              // Already exists
+            }
+
+            await kernel.writeFile(stagePath, backupJSON);
+
+            shell.term.writeln(`Backup staged to: ${stagePath}`);
+            shell.term.writeln('');
+            shell.term.writeln(`Run '\x1b[1mrestore ${backupFilename} --apply\x1b[0m' to restore.`);
+          }
+
+          shell.writePrompt();
+        } catch (error) {
+          shell.term.writeln(`\x1b[31merror: ${error.message}\x1b[0m`);
+          shell.writePrompt();
+        }
+      };
+
+      input.click();
+
+    } catch (error) {
+      shell.term.writeln(`\x1b[31merror: ${error.message}\x1b[0m`);
+    }
+  }, {
+    description: 'Restore VFS from tape backup (.kmt)',
+    category: 'filesystem'
   });
 }

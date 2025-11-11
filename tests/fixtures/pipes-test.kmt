@@ -1,0 +1,16 @@
+{
+  "format": "kmt",
+  "version": "1.0",
+  "created": "2025-11-10T21:16:52.275381Z",
+  "label": "pipes-test",
+  "compression": "none",
+  "checksum": {
+    "uncompressed": "fixture-checksum"
+  },
+  "stats": {
+    "files": 5,
+    "directories": 1,
+    "size": 996
+  },
+  "data": "W3sicGF0aCI6Ii9ob21lIiwidHlwZSI6ImRpcmVjdG9yeSIsImNyZWF0ZWQiOiIyMDI1LTExLTEwVDIxOjE2OjUyLjI3NTM4MVoiLCJtb2RpZmllZCI6IjIwMjUtMTEtMTBUMjE6MTY6NTIuMjc1MzgxWiJ9LHsicGF0aCI6Ii9ob21lL2RhdGEuY3N2IiwidHlwZSI6ImZpbGUiLCJzaXplIjo0OSwiY3JlYXRlZCI6IjIwMjUtMTEtMTBUMjE6MTY6NTIuMjc1MzgxWiIsIm1vZGlmaWVkIjoiMjAyNS0xMS0xMFQyMToxNjo1Mi4yNzUzODFaIiwiY29udGVudCI6Im5hbWUsYWdlLGNpdHlcbmFsaWNlLDMwLE5ZQ1xuYm9iLDI1LExBXG5jYXJvbCwzNSxOWUMifSx7InBhdGgiOiIvaG9tZS9lbXB0eS50eHQiLCJ0eXBlIjoiZmlsZSIsInNpemUiOjAsImNyZWF0ZWQiOiIyMDI1LTExLTEwVDIxOjE2OjUyLjI3NTM4MVoiLCJtb2RpZmllZCI6IjIwMjUtMTEtMTBUMjE6MTY6NTIuMjc1MzgxWiIsImNvbnRlbnQiOiIifSx7InBhdGgiOiIvaG9tZS9taXhlZC50eHQiLCJ0eXBlIjoiZmlsZSIsInNpemUiOjQ2LCJjcmVhdGVkIjoiMjAyNS0xMS0xMFQyMToxNjo1Mi4yNzUzODFaIiwibW9kaWZpZWQiOiIyMDI1LTExLTEwVDIxOjE2OjUyLjI3NTM4MVoiLCJjb250ZW50IjoiaGVsbG8gd29ybGRcbnRlc3QgbGluZVxuaGVsbG8gYWdhaW5cbmFub3RoZXIgdGVzdCJ9LHsicGF0aCI6Ii9ob21lL251bWJlcnMudHh0IiwidHlwZSI6ImZpbGUiLCJzaXplIjo5LCJjcmVhdGVkIjoiMjAyNS0xMS0xMFQyMToxNjo1Mi4yNzUzODFaIiwibW9kaWZpZWQiOiIyMDI1LTExLTEwVDIxOjE2OjUyLjI3NTM4MVoiLCJjb250ZW50IjoiMVxuMlxuM1xuNFxuNSJ9LHsicGF0aCI6Ii9ob21lL3Rlc3QudHh0IiwidHlwZSI6ImZpbGUiLCJzaXplIjozNywiY3JlYXRlZCI6IjIwMjUtMTEtMTBUMjE6MTY6NTIuMjc1MzgxWiIsIm1vZGlmaWVkIjoiMjAyNS0xMS0xMFQyMToxNjo1Mi4yNzUzODFaIiwiY29udGVudCI6ImFwcGxlXG5iYW5hbmFcbmNoZXJyeVxuYXByaWNvdFxuYmx1ZWJlcnJ5In1d"
+}

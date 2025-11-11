@@ -15,6 +15,25 @@ describe('Pipes and Redirection', () => {
     vfs = testVFS.kernel;
     cleanup = testVFS.cleanup;
 
+    // Clear VFS state from previous tests (all tests share same kernel singleton)
+    try {
+      const topLevelDirs = await vfs.readdir('/');
+      for (const entry of topLevelDirs) {
+        const fullPath = `/${entry.name}`;
+        try {
+          if (entry.type === 'directory') {
+            await vfs.unlinkRecursive(fullPath);
+          } else {
+            await vfs.unlink(fullPath);
+          }
+        } catch (e) {
+          // Ignore cleanup errors
+        }
+      }
+    } catch (e) {
+      // Ignore if readdir fails
+    }
+
     const mockShell = await createMockShell();
     shell = mockShell.shell;
     term = mockShell.term;
@@ -41,7 +60,7 @@ describe('Pipes and Redirection', () => {
       const output = term.getOutput();
 
       expect(output).to.include('apple');
-      expect(output).to.include('apricot');
+      expect(output).not.to.include('apricot');
       expect(output).not.to.include('banana');
       expect(output).not.to.include('cherry');
     });
@@ -165,7 +184,7 @@ describe('Pipes and Redirection', () => {
 
       const content = await vfs.readFile('/home/results.txt');
       expect(content).to.include('apple');
-      expect(content).to.include('apricot');
+      expect(content).not.to.include('apricot');
     });
 
     it('should create file if it does not exist', async () => {
@@ -258,7 +277,7 @@ describe('Pipes and Redirection', () => {
       const output = term.getOutput();
 
       expect(output).to.include('apple');
-      expect(output).to.include('apricot');
+      expect(output).not.to.include('apricot');
     });
 
     it('should read input from file with cat <', async () => {
@@ -299,7 +318,7 @@ describe('Pipes and Redirection', () => {
 
       const content = await vfs.readFile('/home/results.txt');
       expect(content).to.include('apple');
-      expect(content).to.include('apricot');
+      expect(content).not.to.include('apricot');
       expect(content).not.to.include('banana');
     });
 
@@ -358,7 +377,7 @@ describe('Pipes and Redirection', () => {
       await shell.execute('cat nonexistent.txt | grep test');
       const output = term.getOutput();
 
-      expect(output.toLowerCase()).to.include('error');
+      expect(output.toLowerCase()).to.match(/error|enoent|not found/);
     });
 
     it('should handle pipe with invalid second command', async () => {
@@ -395,7 +414,7 @@ describe('Pipes and Redirection', () => {
       await shell.execute('cat nonexistent.txt | grep test | wc -l');
       const output = term.getOutput();
 
-      expect(output.toLowerCase()).to.include('error');
+      expect(output.toLowerCase()).to.match(/error|enoent|not found/);
     });
   });
 

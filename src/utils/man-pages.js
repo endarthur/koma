@@ -5,6 +5,129 @@
  */
 
 export const manPages = {
+  'backup.1.md': `# backup(1) - Koma Manual
+
+## NAME
+backup - create VFS backup in Koma Magnetic Tape format
+
+## SYNOPSIS
+**backup** [*label*] [**--no-compress**]
+
+## DESCRIPTION
+Creates a compressed backup of the entire Virtual File System (VFS) and downloads it as a **.kmt** (Koma Magnetic Tape) file. The backup includes all files, directories, and metadata, excluding the \`/mnt/backups/\` directory.
+
+Backups use **gzip compression** by default (typically achieving 70-85% size reduction) and include **dual SHA-256 checksums** for integrity verification.
+
+## OPTIONS
+**label**
+: Optional label for the backup. Used in the filename. Default: "backup"
+
+**--no-compress**
+: Disable gzip compression. Creates larger but faster backups.
+
+## FILE FORMAT
+The .kmt format is a JSON file containing:
+
+- **format**: "kmt" (Koma Magnetic Tape)
+- **version**: Format version (currently "1.0")
+- **created**: ISO 8601 timestamp
+- **label**: User-provided label
+- **compression**: "gzip" or "none"
+- **checksum**: Dual hashes (uncompressed and compressed data)
+- **stats**: File/directory counts and sizes
+- **data**: Base64-encoded (and optionally compressed) VFS entries
+
+## EXAMPLES
+Create a compressed backup:
+\`\`\`bash
+backup
+\`\`\`
+
+Create a labeled backup:
+\`\`\`bash
+backup project-v1
+\`\`\`
+
+Create an uncompressed backup:
+\`\`\`bash
+backup debug --no-compress
+\`\`\`
+
+## OUTPUT
+The backup file is downloaded to your browser's Downloads folder with the format:
+\`\`\`
+backup-YYYYMMDD-HHMMSS-label.kmt
+\`\`\`
+
+The command displays:
+- Number of files and directories
+- Compressed and uncompressed sizes
+- Compression ratio
+- Checksum (first 16 characters)
+
+## TAPE METAPHOR
+The .kmt format follows the aesthetic of Unix magnetic tape archives:
+- Sequential access (entire archive compressed as one unit)
+- Write-once semantics
+- Integrity verification through checksums
+- Suitable for long-term storage
+
+## FILES
+**/mnt/backups/**
+: Directory excluded from backups (to avoid backup loops)
+
+## SEE ALSO
+**restore**(1), **tar**(1), **cpio**(1)
+
+## NOTES
+- Binary files are handled correctly
+- Timestamps are preserved
+- The compression uses the browser's native CompressionStream API
+- No external libraries required
+
+## COMPRESSION DETAILS
+Backup compresses the entire VFS entries array as a single unit using gzip. This approach:
+- Achieves better compression than per-file compression
+- Matches authentic tape semantics
+- Simplifies the implementation
+- Allows faster decompression
+
+Typical compression ratios:
+- Text files: 80-90% reduction
+- Mixed content: 70-85% reduction
+- Binary files: 50-70% reduction
+
+## EXAMPLES OF USE
+**Daily backup:**
+\`\`\`bash
+backup daily-$(date +%Y%m%d)
+\`\`\`
+
+**Pre-deployment snapshot:**
+\`\`\`bash
+backup pre-deploy
+# Make changes
+# If something breaks: restore pre-deploy.kmt --now
+\`\`\`
+
+**Testing setup:**
+\`\`\`bash
+backup clean-state
+# Run tests
+restore clean-state.kmt --now
+# Run more tests with clean state
+\`\`\`
+
+## HISTORY
+The backup/restore system was added in Koma v0.5.6 to provide:
+1. VFS snapshot capability for testing
+2. User data backup functionality
+3. A retro-aesthetic tape backup experience
+
+## AUTHOR
+Koma Terminal Project
+`,
+
   'cat.1.md': `# NAME
 
 cat - concatenate and display files
@@ -623,6 +746,239 @@ pwd
 ## SEE ALSO
 
 cd(1), ls(1)
+`,
+
+  'restore.1.md': `# restore(1) - Koma Manual
+
+## NAME
+restore - restore VFS from Koma Magnetic Tape backup
+
+## SYNOPSIS
+**restore** *file* [**--apply** | **--now**]
+
+## DESCRIPTION
+Restores the Virtual File System (VFS) from a **.kmt** (Koma Magnetic Tape) backup file. The restore process has two modes:
+
+1. **Verify and stage** (default): Verifies backup integrity and saves it to \`/mnt/backups/\`
+2. **Apply**: Restores VFS from a staged backup
+
+The restore process includes:
+- Dual checksum verification (compressed and uncompressed)
+- Metadata display
+- VFS clearing (except \`/mnt/backups/\`)
+- Complete restoration of all files and directories
+
+## OPTIONS
+**file**
+: Backup file to restore. Can be:
+  - Just the filename (looks in \`/mnt/backups/\`)
+  - Full path (e.g., \`/mnt/backups/backup.kmt\`)
+
+**--apply**
+: Apply a previously staged backup. Reads from \`/mnt/backups/\`.
+
+**--now**
+: Verify and apply immediately, skipping the staging step.
+
+## WORKFLOW
+
+### Three-Step Restore (Safest)
+\`\`\`bash
+# Step 1: Upload and verify
+restore backup.kmt
+# Shows: verification, metadata, staging location
+
+# Step 2: Apply
+restore backup.kmt --apply
+# Clears VFS and restores backup
+\`\`\`
+
+### One-Step Restore (Fastest)
+\`\`\`bash
+restore backup.kmt --now
+# Verifies and applies immediately
+\`\`\`
+
+## VERIFICATION
+The restore command performs comprehensive verification:
+
+1. **Format check**: Ensures file is a valid .kmt backup
+2. **Compressed hash**: Verifies file wasn't corrupted during transfer
+3. **Decompression**: Extracts the backup data
+4. **Uncompressed hash**: Verifies data integrity after decompression
+
+If any verification fails, the restore is aborted with an error message.
+
+## METADATA DISPLAY
+Upon successful verification, restore shows:
+
+\`\`\`
+✓ Backup verified
+
+  Format: kmt v1.0
+  Created: 2025-11-10T18:30:00Z
+  Label: project-v1
+  Files: 254
+  Directories: 12
+  Size: 412.8 KB (compressed)
+  Compression: 84.2%
+  Checksum: ✓ Valid
+\`\`\`
+
+## APPLY PROCESS
+When applying a backup (**--apply** or **--now**):
+
+1. **Clear VFS**: All existing files are deleted (except \`/mnt/backups/\`)
+2. **Restore directories**: Creates directory structure
+3. **Restore files**: Writes all files with original content and metadata
+4. **Completion**: Displays success message
+
+**Warning**: This operation is destructive! All current VFS data (except backups) is lost.
+
+## FILE INPUT
+When running \`restore\` without **--apply**, a file picker dialog opens to select the .kmt file from your computer.
+
+## EXAMPLES
+Verify and stage a backup:
+\`\`\`bash
+restore backup.kmt
+\`\`\`
+
+Apply a staged backup:
+\`\`\`bash
+restore backup.kmt --apply
+\`\`\`
+
+Verify and apply immediately:
+\`\`\`bash
+restore backup.kmt --now
+\`\`\`
+
+Restore from a specific path:
+\`\`\`bash
+restore /mnt/backups/backup-20251110-project-v1.kmt --apply
+\`\`\`
+
+## TESTING USE CASE
+The backup/restore system is ideal for testing:
+
+\`\`\`bash
+# Create a clean state snapshot
+backup clean-state
+
+# Run tests that modify VFS
+sh run-tests.sh
+
+# Restore clean state
+restore clean-state.kmt --now
+
+# Run more tests
+sh more-tests.sh
+\`\`\`
+
+## FILES
+**/mnt/backups/**
+: Directory where staged backups are saved. This directory is preserved during restore operations.
+
+## SAFETY
+- **Staged backups** are safer: allows review before applying
+- **Immediate restore** (**--now**) is faster but riskier
+- **Checksums** protect against corrupted backups
+- **/mnt/backups/** directory is never deleted
+
+## ERROR MESSAGES
+**error: invalid backup format**
+: File is not a valid .kmt backup
+
+**error: backup file is corrupted (compressed hash mismatch)**
+: File was corrupted during download/storage
+
+**error: backup data is corrupted (uncompressed hash mismatch)**
+: Data is corrupted after decompression
+
+**error: missing backup file**
+: No filename provided
+
+## COMPRESSION SUPPORT
+Restore automatically detects and handles:
+- Gzip-compressed backups (default from \`backup\` command)
+- Uncompressed backups (created with \`backup --no-compress\`)
+
+No flags needed - the .kmt format specifies the compression method.
+
+## BINARY FILES
+Restore correctly handles all file types:
+- Text files (UTF-8)
+- Binary files (images, PDFs, etc.)
+- Files with special characters
+- Empty files
+
+## TAPE METAPHOR
+Like traditional Unix tape restore:
+- Reads sequentially (entire archive decompressed as one unit)
+- Verifies checksums (tape data integrity)
+- Restores complete snapshots
+- Preserves timestamps and metadata
+
+## PERFORMANCE
+Typical restore times on modern hardware:
+- Small VFS (< 1 MB): < 1 second
+- Medium VFS (1-10 MB): 1-3 seconds
+- Large VFS (10-100 MB): 3-10 seconds
+
+Verification adds minimal overhead (< 100ms for most backups).
+
+## SEE ALSO
+**backup**(1), **tar**(1), **cpio**(1), **restore**(8)
+
+## NOTES
+- The file picker dialog is a browser limitation - cannot read files directly from command line
+- **--apply** mode reads from VFS, so no file picker is needed
+- Timestamps are preserved from the original files
+- The \`/mnt/backups/\` directory is automatically created if needed
+
+## EXAMPLES OF USE
+**Test isolation:**
+\`\`\`bash
+# Each test gets clean state
+restore fixtures.kmt --now
+run_test_1
+restore fixtures.kmt --now
+run_test_2
+\`\`\`
+
+**Disaster recovery:**
+\`\`\`bash
+# Upload backup
+restore system-backup.kmt
+
+# Review metadata
+# Confirm it's the right backup
+
+# Apply
+restore system-backup.kmt --apply
+\`\`\`
+
+**Version rollback:**
+\`\`\`bash
+# Backup current state
+backup current-state
+
+# Try experimental changes
+make_changes
+
+# If it breaks, restore previous state
+restore current-state.kmt --now
+\`\`\`
+
+## HISTORY
+The backup/restore system was added in Koma v0.5.6 to provide:
+1. VFS snapshot capability for testing
+2. User data backup/recovery functionality
+3. A retro-aesthetic tape restore experience
+
+## AUTHOR
+Koma Terminal Project
 `,
 
   'rm.1.md': `# NAME

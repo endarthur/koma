@@ -22,10 +22,9 @@ function generateTestDbName() {
 export async function createTestVFS() {
   const dbName = generateTestDbName();
 
-  // Note: This would require modifying the kernel to support
-  // custom database names. For now, this is a template.
-
-  // Import kernel dynamically
+  // Import kernel client - all tests share the same kernel singleton
+  // Note: Tests will have shared VFS state. This is a known limitation
+  // that we mitigate by running tests serially (concurrency: 1)
   const { kernelClient } = await import('../../src/kernel/client.js');
   const kernel = await kernelClient.getKernel();
 

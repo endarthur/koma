@@ -30,16 +30,59 @@ const DB_NAME = 'KomaVFS';
 const DB_VERSION = 2; // Bumped to force clean migration after Phase 5 changes
 const STORE_NAME = 'filesystem';
 
+/**
+ * Create a VFS error with proper code property
+ * @param {string} code - Error code (ENOENT, EEXIST, EISDIR, ENOTEMPTY, etc.)
+ * @param {string} message - Error message
+ * @param {string} path - File path related to the error
+ * @returns {Error} Error object with code property
+ */
+function createVFSError(code, message, path) {
+  const error = new Error(`${code}: ${message}: ${path}`);
+  error.code = code;
+  error.path = path;
+  return error;
+}
+
 class VFS {
-  constructor() {
+  constructor(dbName = DB_NAME) {
     this.db = null;
+    this.dbName = dbName;
     this.ready = this.initialize();
+  }
+
+  /**
+   * Normalize a path by removing double slashes, resolving . and ..
+   * @param {string} path - Path to normalize
+   * @returns {string} Normalized path
+   */
+  normalizePath(path) {
+    if (!path || path === '') return '/';
+
+    const isAbsolute = path.startsWith('/');
+    const parts = path.split('/').filter(p => p && p !== '.');
+    const normalized = [];
+
+    for (const part of parts) {
+      if (part === '..') {
+        if (normalized.length > 0 && normalized[normalized.length - 1] !== '..') {
+          normalized.pop();
+        } else if (!isAbsolute) {
+          normalized.push('..');
+        }
+      } else {
+        normalized.push(part);
+      }
+    }
+
+    const result = normalized.join('/');
+    return isAbsolute ? (result === '' ? '/' : '/' + result) : (result === '' ? '.' : result);
   }
 
   async initialize() {
     console.log('[VFS] Initializing IndexedDB...');
     return new Promise((resolve, reject) => {
-      const request = indexedDB.open(DB_NAME, DB_VERSION);
+      const request = indexedDB.open(this.dbName, DB_VERSION);
 
       request.onerror = () => {
         console.error('[VFS] IndexedDB error:', request.error);
@@ -261,9 +304,9 @@ class VFS {
       request.onsuccess = () => {
         const entry = request.result;
         if (!entry) {
-          reject(new Error(`ENOENT: no such file or directory: ${path}`));
+          reject(createVFSError('ENOENT', 'no such file or directory', path));
         } else if (entry.type !== 'file') {
-          reject(new Error(`EISDIR: illegal operation on a directory: ${path}`));
+          reject(createVFSError('EISDIR', 'illegal operation on a directory', path));
         } else {
           resolve(entry.content || '');
         }
@@ -285,30 +328,52 @@ class VFS {
       const name = parts[parts.length - 1];
       const parent = parts.length === 1 ? '/' : '/' + parts.slice(0, -1).join('/');
 
-      // Check if file exists
-      const getRequest = store.get(path);
+      // Check if parent directory exists (unless writing to root)
+      if (parent !== '/') {
+        const parentCheck = store.get(parent);
+        parentCheck.onsuccess = () => {
+          if (!parentCheck.result) {
+            reject(createVFSError('ENOENT', 'no such file or directory', parent));
+            return;
+          }
+          if (parentCheck.result.type !== 'directory') {
+            reject(createVFSError('ENOTDIR', 'not a directory', parent));
+            return;
+          }
+          // Parent exists, now check if file exists
+          createOrUpdateFile();
+        };
+        parentCheck.onerror = () => reject(parentCheck.error);
+      } else {
+        // Writing to root, proceed directly
+        createOrUpdateFile();
+      }
 
-      getRequest.onsuccess = () => {
-        const existing = getRequest.result;
-        const now = Date.now();
+      function createOrUpdateFile() {
+        const getRequest = store.get(path);
 
-        const entry = {
-          path,
-          name,
-          type: 'file',
-          parent,
-          content,
-          size: content.length,
-          modified: now,
-          created: existing ? existing.created : now,
+        getRequest.onsuccess = () => {
+          const existing = getRequest.result;
+          const now = Date.now();
+
+          const entry = {
+            path,
+            name,
+            type: 'file',
+            parent,
+            content,
+            size: content.length,
+            modified: now,
+            created: existing ? existing.created : now,
+          };
+
+          const putRequest = store.put(entry);
+          putRequest.onsuccess = () => resolve();
+          putRequest.onerror = () => reject(putRequest.error);
         };
 
-        const putRequest = store.put(entry);
-        putRequest.onsuccess = () => resolve();
-        putRequest.onerror = () => reject(putRequest.error);
-      };
-
-      getRequest.onerror = () => reject(getRequest.error);
+        getRequest.onerror = () => reject(getRequest.error);
+      }
     });
   }
 
@@ -328,24 +393,57 @@ class VFS {
 
       getRequest.onsuccess = () => {
         if (getRequest.result) {
-          reject(new Error(`EEXIST: directory already exists: ${path}`));
+          reject(createVFSError('EEXIST', 'directory already exists', path));
           return;
         }
 
-        const now = Date.now();
-        const entry = {
-          path,
-          name,
-          type: 'directory',
-          parent,
-          created: now,
-          modified: now,
-          size: 0,
-        };
+        // Check if parent directory exists (unless creating in root)
+        if (parent !== '/') {
+          const parentCheck = store.get(parent);
+          parentCheck.onsuccess = () => {
+            if (!parentCheck.result) {
+              reject(createVFSError('ENOENT', 'no such file or directory', parent));
+              return;
+            }
+            if (parentCheck.result.type !== 'directory') {
+              reject(createVFSError('ENOTDIR', 'not a directory', parent));
+              return;
+            }
 
-        const putRequest = store.put(entry);
-        putRequest.onsuccess = () => resolve();
-        putRequest.onerror = () => reject(putRequest.error);
+            // Parent exists and is a directory, create the new directory
+            const now = Date.now();
+            const entry = {
+              path,
+              name,
+              type: 'directory',
+              parent,
+              created: now,
+              modified: now,
+              size: 0,
+            };
+
+            const putRequest = store.put(entry);
+            putRequest.onsuccess = () => resolve();
+            putRequest.onerror = () => reject(putRequest.error);
+          };
+          parentCheck.onerror = () => reject(parentCheck.error);
+        } else {
+          // Creating in root, no parent check needed
+          const now = Date.now();
+          const entry = {
+            path,
+            name,
+            type: 'directory',
+            parent,
+            created: now,
+            modified: now,
+            size: 0,
+          };
+
+          const putRequest = store.put(entry);
+          putRequest.onsuccess = () => resolve();
+          putRequest.onerror = () => reject(putRequest.error);
+        }
       };
 
       getRequest.onerror = () => reject(getRequest.error);
@@ -354,33 +452,47 @@ class VFS {
 
   async unlink(path) {
     await this.ready;
+    path = this.normalizePath(path);
 
     return new Promise((resolve, reject) => {
       const transaction = this.db.transaction([STORE_NAME], 'readwrite');
       const store = transaction.objectStore(STORE_NAME);
 
-      // Check if it's a directory with children
-      const index = store.index('parent');
-      const childrenRequest = index.getAll(path);
+      // First check if the file exists
+      const getRequest = store.get(path);
 
-      childrenRequest.onsuccess = () => {
-        const children = childrenRequest.result;
-        if (children.length > 0) {
-          reject(new Error(`ENOTEMPTY: directory not empty: ${path}`));
+      getRequest.onsuccess = () => {
+        if (!getRequest.result) {
+          reject(createVFSError('ENOENT', 'no such file or directory', path));
           return;
         }
 
-        const deleteRequest = store.delete(path);
-        deleteRequest.onsuccess = () => resolve();
-        deleteRequest.onerror = () => reject(deleteRequest.error);
+        // Check if it's a directory with children
+        const index = store.index('parent');
+        const childrenRequest = index.getAll(path);
+
+        childrenRequest.onsuccess = () => {
+          const children = childrenRequest.result;
+          if (children.length > 0) {
+            reject(createVFSError('ENOTEMPTY', 'directory not empty', path));
+            return;
+          }
+
+          const deleteRequest = store.delete(path);
+          deleteRequest.onsuccess = () => resolve();
+          deleteRequest.onerror = () => reject(deleteRequest.error);
+        };
+
+        childrenRequest.onerror = () => reject(childrenRequest.error);
       };
 
-      childrenRequest.onerror = () => reject(childrenRequest.error);
+      getRequest.onerror = () => reject(getRequest.error);
     });
   }
 
   async stat(path) {
     await this.ready;
+    path = this.normalizePath(path);
 
     return new Promise((resolve, reject) => {
       const transaction = this.db.transaction([STORE_NAME], 'readonly');
@@ -390,7 +502,7 @@ class VFS {
       request.onsuccess = () => {
         const entry = request.result;
         if (!entry) {
-          reject(new Error(`ENOENT: no such file or directory: ${path}`));
+          reject(createVFSError('ENOENT', 'no such file or directory', path));
         } else {
           resolve({
             type: entry.type,
@@ -418,7 +530,7 @@ class VFS {
       getRequest.onsuccess = () => {
         const entry = getRequest.result;
         if (!entry) {
-          reject(new Error(`ENOENT: no such file or directory: ${oldPath}`));
+          reject(createVFSError('ENOENT', 'no such file or directory', oldPath));
           return;
         }
 
@@ -464,12 +576,12 @@ class VFS {
       getRequest.onsuccess = () => {
         const entry = getRequest.result;
         if (!entry) {
-          reject(new Error(`ENOENT: no such file or directory: ${srcPath}`));
+          reject(createVFSError('ENOENT', 'no such file or directory', srcPath));
           return;
         }
 
         if (entry.type !== 'file') {
-          reject(new Error(`EISDIR: illegal operation on a directory: ${srcPath}`));
+          reject(createVFSError('EISDIR', 'illegal operation on a directory', srcPath));
           return;
         }
 
@@ -501,6 +613,34 @@ class VFS {
   async move(srcPath, destPath) {
     // move is the same as rename
     return this.rename(srcPath, destPath);
+  }
+
+  /**
+   * Recursively delete a directory and all its contents
+   * @param {string} path - Path to directory to delete
+   * @returns {Promise<void>}
+   */
+  async unlinkRecursive(path) {
+    await this.ready;
+
+    // Get directory contents
+    const entries = await this.readdir(path);
+
+    // Recursively delete all children
+    for (const entry of entries) {
+      const fullPath = path === '/' ? `/${entry.name}` : `${path}/${entry.name}`;
+
+      if (entry.type === 'directory') {
+        // Recursively delete subdirectory
+        await this.unlinkRecursive(fullPath);
+      } else {
+        // Delete file
+        await this.unlink(fullPath);
+      }
+    }
+
+    // Finally delete the directory itself (now empty)
+    await this.unlink(path);
   }
 }
 
@@ -1020,8 +1160,8 @@ class Scheduler {
 // ============================================================================
 
 class KomaKernel {
-  constructor() {
-    this.vfs = new VFS();
+  constructor(dbName = DB_NAME) {
+    this.vfs = new VFS(dbName);
     this.processes = new ProcessManager(this.vfs);
     this.scheduler = new Scheduler(this.processes);
     this.version = KOMA_VERSION;
@@ -1093,6 +1233,7 @@ class KomaKernel {
   async rename(oldPath, newPath) { return this.vfs.rename(oldPath, newPath); }
   async copyFile(srcPath, destPath) { return this.vfs.copyFile(srcPath, destPath); }
   async move(srcPath, destPath) { return this.vfs.move(srcPath, destPath); }
+  async unlinkRecursive(path) { return this.vfs.unlinkRecursive(path); }
 
   // ========== Process Methods (Phase 5) ==========
   async spawn(script, args, env) {

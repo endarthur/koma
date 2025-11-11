@@ -291,7 +291,9 @@ export class Shell {
     // Execute command
     try {
       const handler = this.commands.get(command);
-      await handler(args, this);
+      const { createTerminalContext } = await import('./utils/command-context.js');
+      const context = createTerminalContext(this.term);
+      await handler(args, this, context);
     } catch (error) {
       this.term.writeln(`\x1b[31mError: ${error.message}\x1b[0m`);
       console.error(error);
@@ -312,7 +314,7 @@ export class Shell {
 
       // Handle input redirection (<)
       if (pipeline.inputFile) {
-        const inputPath = resolvePath(pipeline.inputFile, this.cwd);
+        const inputPath = resolvePath(pipeline.inputFile, this.cwd, this.env.HOME);
         stdin = await kernel.readFile(inputPath);
       }
 
@@ -335,9 +337,8 @@ export class Shell {
         } else if (!isLastStage) {
           context = createPipedContext(this.term, stdin);
         } else {
-          // Last stage with no redirect - write to terminal
+          // Last stage with no redirect - buffer output then write to terminal
           context = createPipedContext(this.term, stdin);
-          context.isPiped = false; // Allow direct terminal output
         }
 
         // Execute command with context
@@ -349,21 +350,25 @@ export class Shell {
           stdin = context.getStdout();
         } else if (hasOutputRedirect) {
           // Write output to file
-          const outputPath = resolvePath(pipeline.outputFile, this.cwd);
+          const outputPath = resolvePath(pipeline.outputFile, this.cwd, this.env.HOME);
           const output = context.getStdout();
 
-          if (pipeline.outputMode === 'append') {
-            // Append mode (>>)
-            try {
-              const existing = await kernel.readFile(outputPath);
-              await kernel.writeFile(outputPath, existing + '\n' + output);
-            } catch (error) {
-              // File doesn't exist, create it
+          try {
+            if (pipeline.outputMode === 'append') {
+              // Append mode (>>)
+              try {
+                const existing = await kernel.readFile(outputPath);
+                await kernel.writeFile(outputPath, existing + '\n' + output);
+              } catch (error) {
+                // File doesn't exist, create it
+                await kernel.writeFile(outputPath, output);
+              }
+            } else {
+              // Write mode (>)
               await kernel.writeFile(outputPath, output);
             }
-          } else {
-            // Write mode (>)
-            await kernel.writeFile(outputPath, output);
+          } catch (error) {
+            this.term.writeln(`\x1b[31mkoma: ${error.message}\x1b[0m`);
           }
         } else {
           // Last stage, no redirect - output already went to terminal

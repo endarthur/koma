@@ -5,6 +5,39 @@
 
 import * as Comlink from 'comlink';
 
+/**
+ * Parse error code from VFS error message
+ * VFS errors follow format: "CODE: message: path"
+ * Comlink strips custom properties from errors, so we parse from message
+ */
+function restoreErrorCode(error) {
+  if (error && error.message && !error.code) {
+    const match = error.message.match(/^([A-Z]+):/);
+    if (match) {
+      error.code = match[1];
+      // Also try to extract path from message
+      const pathMatch = error.message.match(/:\s*([^:]+)$/);
+      if (pathMatch) {
+        error.path = pathMatch[1].trim();
+      }
+    }
+  }
+  return error;
+}
+
+/**
+ * Wrap kernel method to restore error codes
+ */
+function wrapMethod(method) {
+  return async function(...args) {
+    try {
+      return await method(...args);
+    } catch (error) {
+      throw restoreErrorCode(error);
+    }
+  };
+}
+
 class KernelClient {
   constructor() {
     this.worker = null;
@@ -55,6 +88,7 @@ class KernelClient {
 
   /**
    * Get kernel API (VFS methods are at top level)
+   * Returns a Proxy that restores error codes for all methods
    */
   async getKernel() {
     try {
@@ -63,7 +97,17 @@ class KernelClient {
         throw new Error('Kernel not initialized');
       }
 
-      return this.kernel;
+      // Return a Proxy that wraps all kernel methods to restore error codes
+      return new Proxy(this.kernel, {
+        get(target, prop) {
+          const value = target[prop];
+          // If it's a function, wrap it to restore error codes
+          if (typeof value === 'function') {
+            return wrapMethod(value.bind(target));
+          }
+          return value;
+        }
+      });
     } catch (error) {
       console.error('[KernelClient] Failed to get kernel:', error);
       throw error;
