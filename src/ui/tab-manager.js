@@ -232,6 +232,43 @@ export class TabManager {
     return tab.terminal.onData(data => {
       const code = data.charCodeAt(0);
 
+      // Handle interactive input mode (readLine)
+      if (tab.shell.inputMode === 'command-read') {
+        if (code === 13) { // Enter
+          tab.terminal.write('\r\n');
+          const input = tab.shell.inputBuffer;
+          tab.shell.inputMode = 'normal';
+          tab.shell.inputBuffer = '';
+          if (tab.shell.inputResolver) {
+            tab.shell.inputResolver(input);
+            tab.shell.inputResolver = null;
+          }
+          return;
+        } else if (code === 127) { // Backspace
+          if (tab.shell.inputBuffer.length > 0) {
+            tab.shell.inputBuffer = tab.shell.inputBuffer.slice(0, -1);
+            tab.terminal.write('\b \b');
+          }
+          return;
+        } else if (code === 3) { // Ctrl+C
+          tab.terminal.write('^C\r\n');
+          tab.shell.inputMode = 'normal';
+          tab.shell.inputBuffer = '';
+          if (tab.shell.inputResolver) {
+            tab.shell.inputResolver(null); // Signal cancellation
+            tab.shell.inputResolver = null;
+          }
+          tab.shell.writePrompt();
+          return;
+        } else if (code >= 32 && code <= 126) { // Printable characters
+          tab.shell.inputBuffer += data;
+          tab.terminal.write(data);
+          return;
+        }
+        // Ignore other keys in read mode
+        return;
+      }
+
       // Handle Ctrl+K: Enter command mode
       if (code === 11) { // Ctrl+K
         this.enterCommandMode();

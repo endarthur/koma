@@ -10,12 +10,14 @@ export class CommandContext {
    * Create a command context
    * @param {object} options - Context options
    * @param {object} options.term - Terminal instance
+   * @param {object} [options.shell] - Shell instance (for interactive input)
    * @param {string} [options.stdin=''] - Input data (for piped commands)
    * @param {boolean} [options.isPiped=false] - Whether output is being piped
    * @param {boolean} [options.isRedirected=false] - Whether output is redirected to file
    */
   constructor(options) {
     this.term = options.term;
+    this.shell = options.shell || null;
     this.stdin = options.stdin || '';
     this.isPiped = options.isPiped || false;
     this.isRedirected = options.isRedirected || false;
@@ -104,16 +106,31 @@ export class CommandContext {
   isStandalone() {
     return !this.isPiped && !this.isRedirected;
   }
+
+  /**
+   * Read a line of input from the user (interactive mode)
+   * @param {string} prompt - Optional prompt to display
+   * @returns {Promise<string|null>} The input line, or null if cancelled
+   * @throws {Error} If readLine is not available (piped/redirected context)
+   */
+  async readLine(prompt = '') {
+    if (!this.shell) {
+      throw new Error('readLine not available in piped/redirected context');
+    }
+    return await this.shell.readLine(prompt);
+  }
 }
 
 /**
  * Create a command context for standalone terminal execution
  * @param {object} term - Terminal instance
+ * @param {object} [shell] - Shell instance (for interactive input)
  * @returns {CommandContext} Context for standalone execution
  */
-export function createTerminalContext(term) {
+export function createTerminalContext(term, shell = null) {
   return new CommandContext({
     term,
+    shell,
     stdin: '',
     isPiped: false,
     isRedirected: false

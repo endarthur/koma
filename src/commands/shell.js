@@ -15,6 +15,8 @@ import { renderManPage } from '../utils/man-renderer.js';
 import { displayHelp } from '../utils/help-formatter.js';
 import { createArgsModule } from '../stdlib/args.js';
 import { kernelClient } from '../kernel/client.js';
+import { test } from './test.js';
+import { parseSchist, evaluateSchist, createSchistEnv, schistToString, schistWrite } from '../parser/schist.js';
 
 // Create argparse instance for commands
 const argparse = createArgsModule();
@@ -1321,5 +1323,175 @@ export function registerShellCommands(shell, tabManager = null) {
   }, {
     description: 'Restore VFS from tape backup (.kmt)',
     category: 'filesystem'
+  });
+
+  // test command - Evaluate conditional expressions
+  shell.registerCommand('test', test, {
+    description: 'Evaluate conditional expression',
+    category: 'shell'
+  });
+
+  // [ command - Alias for test (requires closing ])
+  shell.registerCommand('[', test, {
+    description: 'Evaluate conditional expression (requires ])',
+    category: 'shell'
+  });
+
+  // schist command - Lisp/Scheme interpreter
+  shell.registerCommand('schist', async (args, shell, context) => {
+    const schema = {
+      description: 'Schist - A minimal Lisp/Scheme interpreter',
+      flags: {
+        '-i': 'Interactive REPL mode',
+        '-e': 'Evaluate expression from arguments'
+      },
+      positional: { description: '[file.scm]' },
+      examples: [
+        { command: 'schist -i', description: 'Start interactive REPL' },
+        { command: 'schist -e "(+ 1 2 3)"', description: 'Evaluate expression' },
+        { command: 'schist -e "(list 1 2 3)"', description: 'Create list' },
+        { command: 'schist -e "(car (list 1 2 3))"', description: 'Get first element' },
+        { command: 'schist -e "(if (= 1 1) \\'yes \\'no)"', description: 'Conditional' },
+        { command: 'schist -e "((lambda (x) (* x x)) 5)"', description: 'Lambda function' },
+        { command: 'schist examples/metacircular.scm', description: 'Run Schist file' }
+      ],
+      notes: [
+        'Built-in functions:',
+        '  Arithmetic: +, -, *, /',
+        '  Comparison: =, eq, <, >, <=, >=',
+        '  Lists: list, car, cdr, cons, length, null?',
+        '  Logic: not, and, or',
+        '  Types: number?, symbol?, list?, function?',
+        '  Meta: eval, apply',
+        '  I/O: display, write, print, newline, read',
+        '',
+        'Special forms:',
+        '  quote, if, cond, lambda, define, set!',
+        '  begin, let',
+        '',
+        'Supports metacircular evaluation - write Lisp in Lisp!',
+        'Named after the metamorphic rock (layered like s-expressions)'
+      ]
+    };
+
+    if (argparse.showHelp('schist', args, schema, shell.term)) return;
+
+    const parsed = argparse.parse(args, schema);
+
+    try {
+      // -i flag: Interactive REPL mode
+      if (parsed.flags['-i'] !== undefined) {
+        context.writeln('Schist REPL v1.0');
+        context.writeln('Type expressions to evaluate, Ctrl+C to exit');
+        context.writeln('');
+
+        const env = createSchistEnv();
+
+        while (true) {
+          // Read input
+          const input = await context.readLine('schist> ');
+
+          // Ctrl+C returns null
+          if (input === null) {
+            context.writeln('');
+            return 0;
+          }
+
+          // Skip empty lines
+          const trimmed = input.trim();
+          if (!trimmed) continue;
+
+          // Skip comments
+          if (trimmed.startsWith(';')) continue;
+
+          try {
+            // Parse and evaluate
+            const expr = parseSchist(trimmed);
+            const result = await evaluateSchist(expr, env, context);
+
+            // Handle special I/O return values
+            if (typeof result === 'object' && result !== null) {
+              if (result.type === 'display') {
+                context.write(schistToString(result.value));
+                continue;
+              }
+              if (result.type === 'write') {
+                context.write(schistWrite(result.value));
+                continue;
+              }
+              if (result.type === 'print') {
+                context.writeln(schistToString(result.value));
+                continue;
+              }
+              if (result.type === 'newline') {
+                context.writeln('');
+                continue;
+              }
+            }
+
+            // Show result (unless it's undefined, like define)
+            if (result !== undefined) {
+              context.writeln(schistToString(result));
+            }
+          } catch (error) {
+            context.writeln(`\x1b[31mError: ${error.message}\x1b[0m`);
+          }
+        }
+      }
+
+      // -e flag: evaluate expression
+      if (parsed.flags['-e'] !== undefined) {
+        const exprIndex = args.indexOf('-e');
+        if (exprIndex === -1 || exprIndex + 1 >= args.length) {
+          showError(shell.term, 'schist', 'missing expression after -e');
+          return 1;
+        }
+
+        const exprStr = args[exprIndex + 1];
+        const expr = parseSchist(exprStr);
+        const env = createSchistEnv();
+        const result = await evaluateSchist(expr, env, context);
+        context.writeln(schistToString(result));
+        return 0;
+      }
+
+      // File execution
+      if (parsed.positional.length > 0) {
+        const kernel = await getKernel();
+        const filePath = resolvePath(parsed.positional[0], shell.cwd);
+
+        // Read file
+        const content = await kernel.readFile(filePath);
+        const lines = content.split('\n');
+
+        // Execute each line
+        const env = createSchistEnv();
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed.startsWith(';')) continue; // Skip comments and blank lines
+
+          const expr = parseSchist(trimmed);
+          const result = await evaluateSchist(expr, env, context);
+
+          // Only show result if it's not undefined (like define)
+          if (result !== undefined) {
+            context.writeln(schistToString(result));
+          }
+        }
+        return 0;
+      }
+
+      // No args: show help
+      showError(shell.term, 'schist', 'missing expression or file');
+      shell.term.writeln('Usage: schist -e "<expression>" or schist <file.scm>');
+      return 1;
+
+    } catch (error) {
+      showError(shell.term, 'schist', error.message);
+      return 1;
+    }
+  }, {
+    description: 'Schist Lisp/Scheme interpreter',
+    category: 'shell'
   });
 }

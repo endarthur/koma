@@ -25,7 +25,9 @@
       "Bash(node:*)",
       "Bash(git checkout:*)",
       "Bash(wait)",
-      "Bash(python generate-fixtures.py:*)"
+      "Bash(python generate-fixtures.py:*)",
+      "Bash(npm run test:unit:*)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []

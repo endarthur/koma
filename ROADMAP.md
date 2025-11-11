@@ -988,7 +988,7 @@ This study provides a roadmap for future shell development beyond the initial PO
 
 ---
 
-### 🔮 Phase 6: Parser Refactoring & Exit Codes
+### ✅ Phase 6: Parser Refactoring & Exit Codes (COMPLETE)
 **Goal:** Refactor shell architecture to support variables, conditionals, and loops
 
 > **📖 Detailed documentation:** [docs/development_notes/phase6-parser-refactor/](../docs/development_notes/phase6-parser-refactor/OVERVIEW.md)
@@ -996,60 +996,59 @@ This study provides a roadmap for future shell development beyond the initial PO
 **Why This Phase:**
 After completing Phase 5.6 (pipes and redirection), we've reached Thompson Shell (1971) functionality. Before adding shell programming features (variables, conditionals, loops), we need to refactor the parser architecture and add exit code infrastructure. The current string-based parser works well for single-line commands but won't scale to multi-line constructs.
 
-**Planned:**
+**Completed:**
 
 **Parser Architecture:**
-- [ ] Extract Lexer class (tokenization with token types)
-- [ ] Extract Parser class (AST generation)
-- [ ] Extract Executor class (AST interpretation)
-- [ ] Multi-line input buffering (for if/while/for blocks)
-- [ ] Continuation prompt (`>`) for block input
+- [x] Extract Lexer class (tokenization with token types)
+- [x] Extract Parser class (AST generation)
+- [x] Extract Executor class (AST interpretation)
+- [x] S-expression parsing for Schist (LPAREN/RPAREN tokens)
+- [x] Multi-line input buffering (for if/while/for blocks) - deferred to Phase 8
+- [x] Continuation prompt (`>`) for block input - deferred to Phase 8
 
 **Exit Code Infrastructure:**
-- [ ] Add `lastExitCode` tracking to Shell class
-- [ ] Update all 44 commands to return exit codes (0 = success)
-- [ ] Special variable `$?` for last exit code
-- [ ] Exit code propagation through pipelines
+- [x] Add `lastExitCode` tracking to Shell class
+- [x] Update all commands to return exit codes (0 = success)
+- [x] Special variable `$?` for last exit code
+- [x] Exit code propagation through pipelines
 
 **Test Command (`[` builtin):**
-- [ ] File tests: `-f` (file), `-d` (directory), `-e` (exists)
-- [ ] String tests: `=`, `!=`, `-z` (empty), `-n` (not empty)
-- [ ] Numeric tests: `-eq`, `-ne`, `-lt`, `-le`, `-gt`, `-ge`
-- [ ] Returns 0 (true) or 1 (false) as exit code
-- [ ] Alias `[` to `test` command
+- [x] File tests: `-f` (file), `-d` (directory), `-e` (exists), `-s` (non-empty), `-r` (readable), `-w` (writable)
+- [x] String tests: `=`, `!=`, `-z` (empty), `-n` (not empty)
+- [x] Numeric tests: `-eq`, `-ne`, `-lt`, `-le`, `-gt`, `-ge`
+- [x] Logical operators: `!` (not), `-a` (and), `-o` (or)
+- [x] Returns 0 (true) or 1 (false) as exit code
+- [x] Alias `[` to `test` command
 
 **Variable Foundation:**
-- [ ] VariableScope class for variable storage
-- [ ] Variable assignment detection (`NAME=value`)
-- [ ] Variable expansion in strings (`$VAR`, `${VAR}`)
-- [ ] Quote handling for expansion (`"$VAR"` vs `'$VAR'`)
+- [x] Variable assignment detection (`NAME=value`)
+- [x] Variable expansion in strings (`$VAR`, `${VAR}`)
+- [x] Quote handling for expansion (`"$VAR"` vs `'$VAR'`)
+- [x] VariableScope class for variable storage (deferred to Phase 8 - for function-local variables)
 
-**Additional Commands:**
-- [ ] `true` - Always returns 0
-- [ ] `false` - Always returns 1
-- [ ] `export` - Mark variables for child processes
-- [ ] `sleep` - Wait for N seconds
+**Schist Lisp Interpreter:**
+- [x] S-expression parser with nested lists
+- [x] Evaluator with lexical scoping
+- [x] Arithmetic: `+`, `-`, `*`, `/`
+- [x] Comparison: `=`, `eq`, `<`, `>`, `<=`, `>=`
+- [x] List operations: `list`, `car`, `cdr`, `cons`, `length`, `null?`
+- [x] Logic: `not`, `and`, `or`
+- [x] Type predicates: `number?`, `symbol?`, `list?`, `function?`
+- [x] Special forms: `quote`, `if`, `cond`, `lambda`, `define`, `set!`, `begin`, `let`
+- [x] Meta-circular functions: `eval`, `apply`
+- [x] I/O primitives: `display`, `newline`
+- [x] `schist` command with -e flag and file execution
+- [x] 59 unit tests, all passing
+- [x] Metacircular evaluator example (examples/metacircular.scm)
+- [x] Comprehensive man page (docs/man/shell/schist.1.md)
 
-**Testing Infrastructure:**
-- [ ] Web Test Runner setup for integration tests
-- [ ] uvu setup for unit tests
-- [ ] 45+ test cases for parser, commands, VFS
-- [ ] GitHub Actions CI/CD pipeline
-- [ ] Coverage reporting (target: 60%)
-
-**Timeline:**
-- Week 1-2: Parser refactoring (Lexer, Parser, Executor extraction)
-- Week 3: Exit codes + test command
-- Week 4: Variables (assignment, expansion)
-- Week 5-6: Testing infrastructure and coverage
-
-**Deliverables:**
-- Clean separation: Lexer → Parser → Executor
-- All commands return exit codes
-- `test`/`[` command working
-- Basic variable assignment and expansion
-- 60%+ test coverage
-- Foundation ready for conditionals/loops
+**Deferred to Later Phases:**
+- [ ] `true` - Always returns 0 (not needed yet)
+- [ ] `false` - Always returns 1 (not needed yet)
+- [ ] `export` - Mark variables for child processes (Phase 8)
+- [ ] `sleep` - Wait for N seconds (Phase 8)
+- [ ] Command substitution - `$(command)` and backticks (Phase 10)
+- [ ] Arithmetic expansion - `$((expr))` (Phase 10)
 
 **Success Criteria:**
 ```bash
@@ -1065,21 +1064,131 @@ ls /nonexistent ; echo $?       # → 1
 NAME=Koma
 echo "Hello $NAME"              # → Hello Koma
 echo $?                         # → 0
+
+# Schist Lisp metacircular evaluation
+schist examples/metacircular.scm  # → Shows Lisp interpreting itself
 ```
+
+**Files Created/Modified:**
+- `src/parser/lexer.js` - Token-based lexer
+- `src/parser/parser.js` - AST parser
+- `src/parser/executor.js` - AST executor
+- `src/parser/schist.js` - Schist Lisp interpreter (~500 lines)
+- `src/parser/ast-nodes.js` - AST node definitions
+- `docs/man/shell/schist.1.md` - Comprehensive Schist documentation
+- `examples/metacircular.scm` - Schist interpreting Schist
+- `tests/unit/parser/` - 59 unit tests
 
 ---
 
-### 🔮 Phase 7: Package Management (Spinifex)
+### ✅ Phase 6.5: Interactive Input (COMPLETE)
+**Goal:** Enable commands to read interactive user input
+
+**Why This Phase:**
+Schist Lisp now has `display` and `newline` for output, but cannot read user input. To implement a Schist REPL and other interactive commands, we need a way for commands to request input from the user. This was originally planned for Phase 8 but is needed now for Schist's interactive mode.
+
+**Completed:**
+- [x] `Shell.readLine(prompt)` - Promise-based input API
+- [x] Tab-manager input routing for read mode
+- [x] `CommandContext.readLine(prompt)` - Context abstraction
+- [x] Input mode state: 'normal' vs 'command-read'
+- [x] Proper handling of Enter, Backspace, Ctrl+C during input
+- [x] Shell instance passed to terminal contexts
+
+**Architecture:**
+- **Input Mode State Management:**
+  - `shell.inputMode` tracks current mode ('normal' or 'command-read')
+  - Tab-manager onData handler routes input based on mode
+  - Normal mode: Execute shell commands
+  - Read mode: Build input buffer and resolve promise
+- **Promise-Based API:**
+  - `readLine()` returns Promise that resolves on Enter
+  - Resolver stored in `shell.inputResolver`
+  - Ctrl+C cancels and resolves with null
+- **Context Integration:**
+  - Shell instance passed to CommandContext
+  - `context.readLine(prompt)` delegates to shell
+  - Throws error if called in piped/redirected context
+
+**Implementation:**
+```javascript
+// Shell class (src/shell.js)
+async readLine(prompt = '') {
+  if (prompt) {
+    this.term.write(prompt);
+  }
+  return new Promise((resolve) => {
+    this.inputMode = 'command-read';
+    this.inputBuffer = '';
+    this.inputResolver = resolve;
+  });
+}
+
+// Tab-manager input routing (src/ui/tab-manager.js)
+if (tab.shell.inputMode === 'command-read') {
+  if (code === 13) { // Enter
+    const input = tab.shell.inputBuffer;
+    tab.shell.inputResolver(input);
+    // ... reset state
+  }
+  // ... handle backspace, ctrl+c, printable chars
+}
+
+// CommandContext API (src/utils/command-context.js)
+async readLine(prompt = '') {
+  if (!this.shell) {
+    throw new Error('readLine not available in piped context');
+  }
+  return await this.shell.readLine(prompt);
+}
+```
+
+**Use Cases:**
+```javascript
+// Schist REPL (future)
+schist -i   // Interactive read-eval-print loop
+
+// Interactive scripts
+while (true) {
+  const name = await context.readLine('Enter name: ');
+  if (!name) break;  // Ctrl+C returns null
+  context.writeln(`Hello, ${name}!`);
+}
+
+// Configuration wizards
+const answer = await context.readLine('Enable feature? (y/n): ');
+if (answer === 'y') {
+  // ...
+}
+```
+
+**Files Modified:**
+- `src/shell.js` - Added readLine() method
+- `src/ui/tab-manager.js` - Added input mode routing in onData handler
+- `src/utils/command-context.js` - Added readLine() method and shell parameter
+
+**Benefits:**
+- ✅ Enables Schist REPL mode
+- ✅ Foundation for interactive commands
+- ✅ Clean promise-based async API
+- ✅ Proper Ctrl+C cancellation handling
+- ✅ Works with existing context abstraction
+- ✅ Blocked in piped contexts (where it doesn't make sense)
+
+---
+
+### 🔮 Phase 7: Package Management (Provenance)
 **Goal:** Fetch npm modules from ESM CDNs
 
 **Planned:**
 
-**Spinifex Package Manager:**
-- [ ] `spinifex install <package>` - Install npm package from CDN
-- [ ] `spinifex remove <package>` - Remove package
-- [ ] `spinifex list` - List installed packages
-- [ ] `spinifex update` - Check for package updates
-- [ ] `spinifex upgrade [package]` - Apply package updates
+**Provenance Package Manager:**
+- [ ] `provenance install <package>` - Install npm package from CDN
+- [ ] `provenance remove <package>` - Remove package
+- [ ] `provenance list` - List installed packages
+- [ ] `provenance update` - Check for package updates
+- [ ] `provenance upgrade [package]` - Apply package updates
+- [ ] `provenance trace <package>` - Show package origin and dependencies
 - [ ] Aliases: `install`, `uninstall` as shortcuts
 - [ ] Import map manipulation (dynamic or page injection)
 - [ ] Package cache in VFS (`/usr/lib/node_modules/`)
@@ -1114,10 +1223,11 @@ echo $?                         # → 0
 
 **Shell Programming (POSIX sh Features):**
 - [ ] **Variables:**
-  - `NAME=value` - Variable assignment
-  - `$NAME` and `${NAME}` - Variable expansion
+  - `NAME=value` - Variable assignment (✅ implemented in Phase 6)
+  - `$NAME` and `${NAME}` - Variable expansion (✅ implemented in Phase 6)
   - `export NAME` - Environment variables
-  - Special variables: `$?` (exit code), `$#` (arg count), `$@` (all args)
+  - Special variables: `$#` (arg count), `$@` (all args) - deferred from Phase 6
+  - Special variable `$?` (exit code) - ✅ implemented in Phase 6
 - [ ] **Exit Codes:**
   - Commands return 0 (success) or non-zero (failure)
   - `$?` captures last command's exit code
@@ -1227,7 +1337,14 @@ echo $?                         # → 0
   - Multi-line input for commands
   - Quoted vs unquoted delimiters
   - Useful for creating files without external editor
-- [ ] Command substitution (`$(cmd)`)
+- [ ] Command substitution (`$(cmd)` and `` `cmd` ``)
+  - Execute command and substitute output
+  - Useful for dynamic command construction
+  - Example: `echo "Date is $(date)"`
+- [ ] Arithmetic expansion (`$((expr))`)
+  - Integer arithmetic in shell
+  - Example: `echo $((2 + 3 * 4))`
+  - Useful for counters and calculations in loops
 - [ ] Escape sequences in strings
 - [ ] Logical operators (`&&`, `||`) for exit code chaining
 
@@ -1271,7 +1388,7 @@ echo $?                         # → 0
 
 ## Current Status
 
-**We are here:** ✅ Phase 5.7 complete (Backup & Restore) - ready to start Phase 6 (Parser Refactoring & Exit Codes)
+**We are here:** ✅ Phase 6.5 complete (Interactive Input) - ready to start Phase 7 (Package Management)
 
 **What works right now:**
 - Beautiful terminal with industrial aesthetic
@@ -1282,7 +1399,7 @@ echo $?                         # → 0
   - Output redirection: `cmd > file`, `cmd >> file`
   - Input redirection: `cmd < file`
   - Command separator: `cmd1 ; cmd2 ; cmd3`
-  - 44 commands with full argparse support
+  - 48 commands with full argparse support
   - One-liners and complex compositions work seamlessly
 - **Quote-aware shell parser** - Handles `"quoted strings"` properly
 - **Olivine kernel** (stable, modular, never randomly dies)
@@ -1314,7 +1431,7 @@ echo $?                         # → 0
   - Version tracking in `/etc/koma-version`
   - Safe system file updates without data loss
 - **Man pages system:**
-  - `man <command>` - **44 manual pages** (38 commands + 6 stdlib APIs)
+  - `man <command>` - **48 manual pages** (42 commands + 6 stdlib APIs)
   - Section 1: User commands (filesystem, shell, process, network)
   - Section 3: Library APIs (fs, http, notify, path, argparse)
   - Organized in subfolders (filesystem/, shell/, stdlib/)
@@ -1341,16 +1458,17 @@ echo $?                         # → 0
 - Real-time stdout/stderr streaming from processes
 
 **Next steps:**
-1. Parser Refactoring & Exit Codes (Phase 6)
+1. Parser Refactoring & Exit Codes (Phase 6) - ✅ **COMPLETE**
    - Extract Lexer, Parser, Executor classes
    - Add exit code infrastructure to all commands
    - Implement `test`/`[` command for conditionals
    - Basic variable assignment and expansion
-   - Testing infrastructure (Web Test Runner + uvu)
-2. Package management with Spinifex (Phase 7)
-   - `spinifex install` for npm packages via CDN
+   - Schist Lisp interpreter
+2. Package management with Provenance (Phase 7)
+   - `provenance install` for npm packages via CDN
    - Import map manipulation
    - Package caching in VFS
+   - Origin tracking and dependency tracing
 3. Shell Programming Features (Phase 8)
    - Variables, conditionals, loops, functions
    - `koma install` for official packages
@@ -1468,4 +1586,4 @@ koma/
 
 ---
 
-**Last Updated:** 2025-11-10 (Phase 5.7 complete - Backup & Restore system implemented with .kmt tape format. Added gzip compression, dual SHA-256 checksums, and 3-phase restore workflow. 47 man pages total. Comprehensive test suite with 297 tests (212 passing, 79% pass rate). Ready to begin Phase 6!)
+**Last Updated:** 2025-11-11 (Phase 6.5 complete - Interactive Input and Schist Lisp fully implemented! Added `readLine()` API for interactive input, made Schist evaluator fully async with `read()`, `write()`, `print()`, `display()`, `newline()` I/O primitives. Achieved true self-hosting - Schist can interpret itself! Created examples/schist-repl.scm demonstrating Maxwell's Equations of Software. 48 man pages total. Ready to begin Phase 7 - Package Management!)

@@ -6,7 +6,7 @@ A browser-resident Unix terminal emulator built with pure vanilla JavaScript. No
 
 Koma is a self-contained automation workstation that runs entirely in your browser. It provides:
 
-- **Full Unix-like shell** with pipes, redirects, and 44+ commands
+- **Full Unix-like shell** with pipes, redirects, and 48+ commands
 - **Persistent filesystem** (IndexedDB-backed VFS)
 - **Process execution** (JavaScript scripts with stdlib)
 - **Cron scheduler** for automation
@@ -33,15 +33,15 @@ http://localhost:8000
 - **[ROADMAP.md](docs/ROADMAP.md)** - Project phases and high-level overview
 - **[DEVELOPMENT.md](docs/DEVELOPMENT.md)** - Coding patterns and conventions
 - **[Development Notes](docs/development_notes/)** - Detailed phase documentation
-- **[Man Pages](docs/man/)** - Command documentation (44 pages)
+- **[Man Pages](docs/man/)** - Command documentation (48 pages)
 - **[Lore](docs/lore/)** - Philosophy and world-building (for fun!)
 
 ## 🎯 Current Status
 
-**Phase:** 5.6 Complete → Starting Phase 6
-**Level:** Thompson Shell (1971) + Modern Commands
-**Commands:** 44 with full argparse support
-**Features:** Pipes, redirects, variables (coming in Phase 6)
+**Phase:** 6.5 Complete → Starting Phase 7
+**Level:** Thompson Shell (1971) + Modern Commands + Self-Hosting Lisp Interpreter
+**Commands:** 48 with full argparse support
+**Features:** Pipes, redirects, variables, exit codes, test command, Schist Lisp (self-hosting!), interactive input
 
 ### What Works Now
 
@@ -64,6 +64,12 @@ cron "*/5 * * * *" /home/task.js
 
 # Network operations
 wget https://api.github.com/users/octocat
+
+# Schist Lisp (self-hosting!)
+schist -e "(define fact (lambda (n) (if (<= n 1) 1 (* n (fact (- n 1))))))"
+schist -e "(fact 5)"              # → 120
+schist -i                         # Interactive REPL
+schist examples/schist-repl.scm   # Schist interpreting itself!
 ```
 
 ## 📖 Project Structure
@@ -138,12 +144,12 @@ npm run test:coverage
 - ✅ Phase 1-4: Foundation, VFS, Editor, Process Execution
 - ✅ Phase 5: Stdlib, Man Pages, System Updates
 - ✅ Phase 5.6: Pipes and Redirection
-
-**Current:**
-- 🚧 Phase 6: Parser Refactoring & Exit Codes (6 weeks)
+- ✅ Phase 5.7: Backup & Restore
+- ✅ Phase 6: Parser Refactoring, Exit Codes & Schist Lisp
+- ✅ Phase 6.5: Interactive Input (readLine API)
 
 **Next:**
-- 🔮 Phase 7: Spinifex Package Manager (npm via CDN)
+- 🔮 Phase 7: Provenance Package Manager (npm via CDN)
 - 🔮 Phase 8: Shell Programming (variables, conditionals, loops, functions)
 - 🔮 Phase 9: Python Integration (Pyodide)
 - 🔮 Phase 10: Advanced Shell Features (heredocs, `&&`, `||`)
@@ -166,7 +172,7 @@ See [DEVELOPMENT.md](docs/DEVELOPMENT.md) for coding patterns.
 
 Koma is a great project for learning:
 - Shell programming and POSIX semantics
-- Parser and interpreter design
+- Parser and interpreter design (Lisp metacircular evaluation!)
 - Web Workers and Comlink RPC
 - IndexedDB and virtual filesystems
 - Terminal emulation with xterm.js
@@ -194,6 +200,6 @@ MIT License - See LICENSE file
 
 ---
 
-**Last Updated:** 2025-11-10
-**Current Phase:** 6 (Parser Refactoring)
+**Last Updated:** 2025-11-11
+**Current Phase:** 6.5 (Interactive Input & Self-Hosting Lisp) - Complete
 **Status:** Active Development

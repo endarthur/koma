@@ -3,6 +3,9 @@
  */
 
 import { commandRegistry } from './utils/command-registry.js';
+import { tokenize } from './parser/lexer.js';
+import { parse } from './parser/parser.js';
+import { Executor } from './parser/executor.js';
 
 export class Shell {
   constructor(terminal) {
@@ -17,6 +20,8 @@ export class Shell {
       PATH: '/usr/bin:/bin',
       SHELL: '/bin/koma',
     };
+    this.lastExitCode = 0; // Track exit codes for $?
+    this.executor = new Executor(this); // AST executor
   }
 
   /**
@@ -237,7 +242,7 @@ export class Shell {
   }
 
   /**
-   * Execute a command or pipeline
+   * Execute a command or pipeline using the new parser
    */
   async execute(line) {
     if (!line.trim()) return;
@@ -246,17 +251,19 @@ export class Shell {
     this.history.push(line);
     this.historyIndex = this.history.length;
 
-    // Check for semicolon separators first
-    const segments = this.splitBySemicolon(line);
+    try {
+      // Tokenize → Parse → Execute (new parser pipeline)
+      const tokens = tokenize(line);
+      const ast = parse(tokens);
+      const exitCode = await this.executor.execute(ast);
 
-    if (segments.length > 1) {
-      // Multiple commands separated by semicolons - execute each in sequence
-      for (const segment of segments) {
-        await this.executeSegment(segment);
-      }
-    } else {
-      // Single command (might be a pipeline)
-      await this.executeSegment(line);
+      // Track exit code for $?
+      this.lastExitCode = exitCode;
+    } catch (error) {
+      // Parser/executor errors
+      this.term.writeln(`\x1b[31mError: ${error.message}\x1b[0m`);
+      console.error('[Shell]', error);
+      this.lastExitCode = 1;
     }
   }
 
@@ -292,7 +299,7 @@ export class Shell {
     try {
       const handler = this.commands.get(command);
       const { createTerminalContext } = await import('./utils/command-context.js');
-      const context = createTerminalContext(this.term);
+      const context = createTerminalContext(this.term, this);
       await handler(args, this, context);
     } catch (error) {
       this.term.writeln(`\x1b[31mError: ${error.message}\x1b[0m`);
@@ -418,6 +425,23 @@ export class Shell {
     const promptColor = '\x1b[38;5;208m'; // Orange
     const reset = '\x1b[0m';
     this.term.write(`${promptColor}${this.cwd}${reset} $ `);
+  }
+
+  /**
+   * Read a line of input from the user (for interactive commands)
+   * @param {string} prompt - Optional prompt to display
+   * @returns {Promise<string>} The line entered by the user
+   */
+  async readLine(prompt = '') {
+    if (prompt) {
+      this.term.write(prompt);
+    }
+
+    return new Promise((resolve) => {
+      this.inputMode = 'command-read';
+      this.inputBuffer = '';
+      this.inputResolver = resolve;
+    });
   }
 
   /**
