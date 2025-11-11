@@ -14,6 +14,10 @@ describe('kmt command', () => {
     vfs = testVFS.kernel;
     cleanup = testVFS.cleanup;
 
+    // Inject test kernel into kernelClient
+    const { kernelClient } = await import('../../../src/kernel/client.js');
+    kernelClient.setTestKernel(vfs);
+
     const mockShell = await createMockShell();
     shell = mockShell.shell;
     term = mockShell.term;
@@ -28,6 +32,10 @@ describe('kmt command', () => {
   });
 
   afterEach(async () => {
+    // Clear test kernel
+    const { kernelClient } = await import('../../../src/kernel/client.js');
+    kernelClient.clearTestKernel();
+
     if (cleanup) {
       await cleanup();
     }

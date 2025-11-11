@@ -42,6 +42,7 @@ class KernelClient {
   constructor() {
     this.worker = null;
     this.kernel = null;
+    this.testKernel = null; // For testing
     this.ready = this.initialize();
   }
 
@@ -92,6 +93,11 @@ class KernelClient {
    */
   async getKernel() {
     try {
+      // Return test kernel if one is set (for testing)
+      if (this.testKernel) {
+        return this.testKernel;
+      }
+
       await this.ready;
       if (!this.kernel) {
         throw new Error('Kernel not initialized');
@@ -112,6 +118,21 @@ class KernelClient {
       console.error('[KernelClient] Failed to get kernel:', error);
       throw error;
     }
+  }
+
+  /**
+   * Set test kernel (for testing only)
+   * Allows tests to inject a mock kernel
+   */
+  setTestKernel(kernel) {
+    this.testKernel = kernel;
+  }
+
+  /**
+   * Clear test kernel (for testing only)
+   */
+  clearTestKernel() {
+    this.testKernel = null;
   }
 
   /**
