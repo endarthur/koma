@@ -17,6 +17,7 @@ import { createArgsModule } from '../stdlib/args.js';
 import { kernelClient } from '../kernel/client.js';
 import { test } from './test.js';
 import { parseSchist, evaluateSchist, createSchistEnv, schistToString, schistWrite } from '../parser/schist.js';
+import { registerRTTYCommands } from './rtty.js';
 
 // Create argparse instance for commands
 const argparse = createArgsModule();
@@ -37,6 +38,8 @@ export function registerShellCommands(shell, tabManager = null) {
       positional: { description: '<subcommand>' },
       examples: [
         { command: 'koma version', description: 'Show system version' },
+        { command: 'koma insert examples', description: 'Download and unpack from store' },
+        { command: 'koma eject examples', description: 'Eject tape from /media/' },
         { command: 'koma update', description: 'Check for system updates' },
         { command: 'koma upgrade', description: 'Apply system updates' },
         { command: 'koma reset', description: 'Reset system files' }
@@ -50,7 +53,7 @@ export function registerShellCommands(shell, tabManager = null) {
     if (parsed.positional.length === 0) {
       showError(shell.term, 'koma', 'missing subcommand');
       shell.term.writeln('Usage: koma <subcommand>');
-      shell.term.writeln('Subcommands: version, update, upgrade, reset');
+      shell.term.writeln('Subcommands: version, insert, eject, update, upgrade, reset');
       return;
     }
 
@@ -112,6 +115,227 @@ export function registerShellCommands(shell, tabManager = null) {
           break;
         }
 
+        case 'insert': {
+          // Insert KMT tape from store (download and optionally unpack)
+          if (parsed.positional.length < 2) {
+            showError(shell.term, 'koma insert', 'missing archive name');
+            shell.term.writeln('Usage: koma insert <archive.kmt> [options]');
+            shell.term.writeln('');
+            shell.term.writeln('Options:');
+            shell.term.writeln('  --download-only    Download only, don\'t unpack');
+            shell.term.writeln('  --to DIR           Extract to custom directory');
+            shell.term.writeln('');
+            shell.term.writeln('Examples:');
+            shell.term.writeln('  koma insert examples.kmt           # Download and unpack to /media/examples/');
+            shell.term.writeln('  koma insert examples.kmt --download-only  # Download to /media/examples.kmt');
+            shell.term.writeln('  koma insert examples.kmt --to /home       # Unpack to /home/');
+            return;
+          }
+
+          // Auto-append .kmt extension if not present
+          let archiveName = parsed.positional[1];
+          if (!archiveName.endsWith('.kmt')) {
+            archiveName += '.kmt';
+          }
+
+          const downloadOnly = args.includes('--download-only');
+          const toIndex = args.indexOf('--to');
+          const customDestination = toIndex !== -1 && toIndex + 1 < args.length ? args[toIndex + 1] : null;
+
+          // Build store URL based on current origin
+          const origin = window.location.origin;
+          const storeUrl = `${origin}/store/${archiveName}`;
+
+          shell.term.writeln(`Inserting KMT: ${archiveName}`);
+          shell.term.writeln(`From: ${storeUrl}`);
+          shell.term.writeln('');
+
+          // Ensure /media directory exists
+          try {
+            await kernel.mkdir('/media');
+          } catch (e) {
+            // Already exists
+          }
+
+          // Determine temp download location
+          const tempPath = `/media/.tmp_${archiveName}`;
+
+          try {
+            // Download using wget-like functionality
+            shell.term.writeln('Downloading...');
+            const response = await fetch(storeUrl);
+
+            if (!response.ok) {
+              throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const content = await response.text();
+            await kernel.writeFile(tempPath, content);
+
+            showSuccess(shell.term, '', `Downloaded ${archiveName}`);
+
+            if (downloadOnly) {
+              // Just move to /media
+              const finalPath = `/media/${archiveName}`;
+              await kernel.writeFile(finalPath, content);
+              await kernel.unlink(tempPath);
+              shell.term.writeln(`Saved to: ${finalPath}`);
+            } else {
+              // Unpack the archive
+              shell.term.writeln('');
+              shell.term.writeln('Unpacking...');
+
+              // Determine destination
+              const archiveBaseName = archiveName.replace(/\.kmt$/, '');
+              const destination = customDestination || `/media/${archiveBaseName}`;
+
+              // Read and parse the KMT file
+              const archiveJSON = await kernel.readFile(tempPath);
+              const archive = JSON.parse(archiveJSON);
+
+              if (archive.format !== 'kmt') {
+                throw new Error('Invalid KMT archive format');
+              }
+
+              // Decompress if needed
+              let entriesJSON;
+              if (archive.compression === 'gzip') {
+                const compressedData = atob(archive.data);
+                entriesJSON = await decompressString(compressedData);
+              } else {
+                entriesJSON = base64ToUtf8(archive.data);
+              }
+
+              const entries = JSON.parse(entriesJSON);
+
+              // Detect path type
+              const hasAbsolutePaths = entries.length > 0 && entries[0].path.startsWith('/');
+
+              // Sort entries: directories first, then by depth
+              const sortedEntries = entries.slice().sort((a, b) => {
+                if (a.type === 'directory' && b.type !== 'directory') return -1;
+                if (a.type !== 'directory' && b.type === 'directory') return 1;
+                const aDepth = a.path.split('/').length;
+                const bDepth = b.path.split('/').length;
+                return aDepth - bDepth;
+              });
+
+              let filesExtracted = 0;
+              let dirsCreated = 0;
+
+              for (const entry of sortedEntries) {
+                // Determine target path
+                let targetPath;
+                if (hasAbsolutePaths) {
+                  targetPath = destination === `/media/${archiveBaseName}`
+                    ? entry.path
+                    : `${destination}${entry.path}`;
+                } else {
+                  if (entry.path === '.') {
+                    targetPath = destination;
+                  } else {
+                    targetPath = `${destination}/${entry.path}`;
+                  }
+                }
+
+                if (entry.type === 'directory') {
+                  // Ensure parent directories exist
+                  const parts = targetPath.split('/').filter(Boolean);
+                  for (let i = 1; i <= parts.length; i++) {
+                    const dirPath = '/' + parts.slice(0, i).join('/');
+                    try {
+                      await kernel.mkdir(dirPath);
+                    } catch (e) {
+                      // Directory might exist
+                    }
+                  }
+                  dirsCreated++;
+                } else if (entry.type === 'file') {
+                  // Ensure parent directory exists
+                  const parentDir = targetPath.substring(0, targetPath.lastIndexOf('/')) || '/';
+                  if (parentDir !== '/') {
+                    const parts = parentDir.split('/').filter(Boolean);
+                    for (let i = 1; i <= parts.length; i++) {
+                      const dirPath = '/' + parts.slice(0, i).join('/');
+                      try {
+                        await kernel.mkdir(dirPath);
+                      } catch (e) {
+                        // Directory might exist
+                      }
+                    }
+                  }
+
+                  await kernel.writeFile(targetPath, entry.content);
+                  filesExtracted++;
+                }
+              }
+
+              // Clean up temp file
+              try {
+                await kernel.unlink(tempPath);
+              } catch (e) {
+                // Ignore
+              }
+
+              shell.term.writeln('');
+              showSuccess(shell.term, '', `Extracted ${filesExtracted} files, ${dirsCreated} directories`);
+              shell.term.writeln(`Location: ${destination}`);
+              shell.term.writeln(`Label: ${archive.label}`);
+            }
+
+          } catch (error) {
+            // Clean up temp file on error
+            try {
+              await kernel.unlink(tempPath);
+            } catch (e) {
+              // Ignore
+            }
+
+            showError(shell.term, 'koma insert', error.message);
+            console.error('[koma insert]', error);
+          }
+
+          break;
+        }
+
+        case 'eject': {
+          // Eject KMT tape from /media (remove directory or file)
+          if (parsed.positional.length < 2) {
+            showError(shell.term, 'koma eject', 'missing tape name');
+            shell.term.writeln('Usage: koma eject <name>');
+            shell.term.writeln('');
+            shell.term.writeln('Examples:');
+            shell.term.writeln('  koma eject examples        # Remove /media/examples/');
+            shell.term.writeln('  koma eject examples.kmt    # Remove /media/examples.kmt');
+            return;
+          }
+
+          const tapeName = parsed.positional[1];
+          const targetPath = `/media/${tapeName}`;
+
+          try {
+            // Check if it's a directory or file
+            const stat = await kernel.stat(targetPath);
+
+            if (stat.type === 'directory') {
+              // Recursively remove directory
+              await kernel.unlinkRecursive(targetPath);
+              showSuccess(shell.term, '', `Ejected tape: ${tapeName}`);
+              shell.term.writeln(`Removed: ${targetPath}/`);
+            } else {
+              // Remove file
+              await kernel.unlink(targetPath);
+              showSuccess(shell.term, '', `Ejected tape: ${tapeName}`);
+              shell.term.writeln(`Removed: ${targetPath}`);
+            }
+          } catch (error) {
+            showError(shell.term, 'koma eject', `Tape not found: ${tapeName}`);
+            console.error('[koma eject]', error);
+          }
+
+          break;
+        }
+
         case 'reset': {
           shell.term.writeln('Resetting system files...');
           const result = await kernel.resetSystem();
@@ -127,14 +351,14 @@ export function registerShellCommands(shell, tabManager = null) {
 
         default:
           showError(shell.term, 'koma', `unknown subcommand: ${subcommand}`);
-          shell.term.writeln('Subcommands: version, update, upgrade, reset');
+          shell.term.writeln('Subcommands: version, insert, update, upgrade, reset');
       }
     } catch (error) {
       showError(shell.term, 'koma', error.message);
       console.error('[koma]', error);
     }
   }, {
-    description: 'System management (version, update, upgrade, reset)',
+    description: 'System management (version, insert, update, upgrade, reset)',
     category: 'shell'
   });
 
@@ -1325,6 +1549,436 @@ export function registerShellCommands(shell, tabManager = null) {
     category: 'filesystem'
   });
 
+  // kmt - Koma Magnetic Tape archive tool
+  shell.registerCommand('kmt', async (args, shell, context) => {
+    const argparse = await import('../stdlib/args.js').then(m => m.createArgsModule());
+
+    if (args.length === 0 || args[0] === '--help' || args[0] === '-h') {
+      context.writeln('Usage: kmt <command> [options]');
+      context.writeln('');
+      context.writeln('Commands:');
+      context.writeln('  pack <source> <output.kmt>    Create KMT archive from directory/file');
+      context.writeln('  unpack <input.kmt> [dest]     Extract KMT archive');
+      context.writeln('  list <input.kmt>              List archive contents');
+      context.writeln('  info <input.kmt>              Show archive metadata');
+      context.writeln('');
+      context.writeln('Pack options:');
+      context.writeln('  -c, --compress                Use gzip compression (default: auto)');
+      context.writeln('  -C, --no-compress             Disable compression');
+      context.writeln('  -a, --absolute                Use absolute paths (default: relative)');
+      context.writeln('  -l, --label TEXT              Set archive label');
+      context.writeln('');
+      context.writeln('Unpack options:');
+      context.writeln('  -v, --verbose                 Show files as extracted');
+      context.writeln('  -f, --force                   Overwrite existing files');
+      context.writeln('');
+      context.writeln('List options:');
+      context.writeln('  -l, --long                    Show detailed information');
+      context.writeln('');
+      context.writeln('Examples:');
+      context.writeln('  kmt pack /home/projects project.kmt');
+      context.writeln('  kmt unpack examples.kmt /home');
+      context.writeln('  kmt list backup.kmt');
+      context.writeln('  kmt info backup.kmt --long');
+      context.writeln('');
+      context.writeln('See also: man kmt(1), man kmt(5), backup(1), restore(1)');
+      return;
+    }
+
+    const subcommand = args[0];
+    const subArgs = args.slice(1);
+
+    try {
+      const { kernelClient } = await import('../kernel/client.js');
+      const kernel = await kernelClient.getKernel();
+
+      switch (subcommand) {
+        case 'pack': {
+          if (subArgs.length < 2) {
+            context.writeln('\x1b[31merror: pack requires <source> <output.kmt>\x1b[0m');
+            context.writeln('Usage: kmt pack <source> <output.kmt> [options]');
+            return 1;
+          }
+
+          const sourcePath = subArgs[0];
+          const outputFile = subArgs[1];
+          const flags = {
+            compress: subArgs.includes('--compress') || subArgs.includes('-c'),
+            noCompress: subArgs.includes('--no-compress') || subArgs.includes('-C'),
+            absolute: subArgs.includes('--absolute') || subArgs.includes('-a'),
+          };
+
+          const labelIndex = subArgs.indexOf('--label') !== -1 ? subArgs.indexOf('--label') :
+                            subArgs.indexOf('-l') !== -1 ? subArgs.indexOf('-l') : -1;
+          const label = labelIndex !== -1 && labelIndex + 1 < subArgs.length
+            ? subArgs[labelIndex + 1]
+            : sourcePath.split('/').pop() || 'archive';
+
+          context.writeln(`Creating archive from ${sourcePath}...`);
+
+          // Get entries from source path
+          let entries = await getAllVFSEntries(kernel, sourcePath, []);
+
+          // Convert to relative paths by default (unless --absolute flag)
+          if (!flags.absolute) {
+            // Make paths relative to source path
+            entries = entries.map(entry => ({
+              ...entry,
+              path: entry.path === sourcePath
+                ? '.'
+                : entry.path.startsWith(sourcePath + '/')
+                  ? entry.path.slice(sourcePath.length + 1)
+                  : entry.path
+            }));
+          }
+
+          const entriesJSON = JSON.stringify(entries);
+
+          // Determine compression (auto = compress if > 1KB)
+          const shouldCompress = flags.compress || (!flags.noCompress && entriesJSON.length > 1024);
+
+          let data, compressedHash, uncompressedHash, compressedSize, stats;
+
+          if (shouldCompress) {
+            context.writeln('Compressing data...');
+            uncompressedHash = await computeSHA256(entriesJSON);
+            const compressed = await compressString(entriesJSON);
+            compressedHash = await computeSHA256(compressed);
+            data = btoa(compressed);
+            compressedSize = compressed.length;
+
+            stats = {
+              files: entries.filter(e => e.type === 'file').length,
+              directories: entries.filter(e => e.type === 'directory').length,
+              size_uncompressed: entriesJSON.length,
+              size_compressed: compressedSize,
+              compression_ratio: `${(100 - (compressedSize / entriesJSON.length * 100)).toFixed(1)}%`
+            };
+          } else {
+            uncompressedHash = await computeSHA256(entriesJSON);
+            data = utf8ToBase64(entriesJSON);
+
+            stats = {
+              files: entries.filter(e => e.type === 'file').length,
+              directories: entries.filter(e => e.type === 'directory').length,
+              size: entriesJSON.length
+            };
+          }
+
+          const now = new Date();
+          const archive = {
+            format: 'kmt',
+            version: '1.0',
+            created: now.toISOString(),
+            label: label,
+            compression: shouldCompress ? 'gzip' : 'none',
+            checksum: {
+              uncompressed: `sha256:${uncompressedHash}`,
+              ...(shouldCompress && { compressed: `sha256:${compressedHash}` })
+            },
+            stats: stats,
+            data: data
+          };
+
+          const archiveJSON = JSON.stringify(archive, null, 2);
+
+          // Save to VFS
+          await kernel.writeFile(outputFile.startsWith('/') ? outputFile : `/home/${outputFile}`, archiveJSON);
+
+          context.writeln('');
+          context.writeln(`\x1b[32mArchive created: ${outputFile}\x1b[0m`);
+          context.writeln(`  Label: ${label}`);
+          context.writeln(`  Files: ${stats.files}`);
+          context.writeln(`  Directories: ${stats.directories}`);
+          if (shouldCompress) {
+            context.writeln(`  Size: ${(stats.size_compressed / 1024).toFixed(1)} KB (compressed)`);
+            context.writeln(`  Uncompressed: ${(stats.size_uncompressed / 1024).toFixed(1)} KB`);
+            context.writeln(`  Compression: ${stats.compression_ratio}`);
+          } else {
+            context.writeln(`  Size: ${(stats.size / 1024).toFixed(1)} KB`);
+          }
+          context.writeln(`  Checksum: ${uncompressedHash.slice(0, 16)}...`);
+          break;
+        }
+
+        case 'unpack': {
+          if (subArgs.length < 1) {
+            context.writeln('\x1b[31merror: unpack requires <input.kmt>\x1b[0m');
+            context.writeln('Usage: kmt unpack <input.kmt> [dest-dir] [options]');
+            return 1;
+          }
+
+          const inputFile = subArgs[0];
+          let destDir = subArgs[1] || null;
+          const flags = {
+            verbose: subArgs.includes('--verbose') || subArgs.includes('-v'),
+            force: subArgs.includes('--force') || subArgs.includes('-f'),
+          };
+
+          context.writeln(`Reading archive ${inputFile}...`);
+
+          const archivePath = inputFile.startsWith('/') ? inputFile : `/home/${inputFile}`;
+          const archiveJSON = await kernel.readFile(archivePath);
+          const archive = JSON.parse(archiveJSON);
+
+          if (archive.format !== 'kmt') {
+            context.writeln('\x1b[31merror: invalid KMT archive format\x1b[0m');
+            return 1;
+          }
+
+          context.writeln('Verifying checksums...');
+
+          // Decompress if needed
+          let entriesJSON;
+          if (archive.compression === 'gzip') {
+            const compressedData = atob(archive.data);
+            const compressedHash = await computeSHA256(compressedData);
+            const expectedCompressed = archive.checksum.compressed.replace('sha256:', '');
+            if (compressedHash !== expectedCompressed) {
+              context.writeln('\x1b[31merror: corrupted archive (compressed hash mismatch)\x1b[0m');
+              return 1;
+            }
+            entriesJSON = await decompressString(compressedData);
+          } else {
+            entriesJSON = base64ToUtf8(archive.data);
+          }
+
+          const uncompressedHash = await computeSHA256(entriesJSON);
+          const expectedUncompressed = archive.checksum.uncompressed.replace('sha256:', '');
+          if (uncompressedHash !== expectedUncompressed) {
+            context.writeln('\x1b[31merror: corrupted archive (uncompressed hash mismatch)\x1b[0m');
+            return 1;
+          }
+
+          const entries = JSON.parse(entriesJSON);
+
+          // Detect if paths are absolute or relative
+          const hasAbsolutePaths = entries.length > 0 && entries[0].path.startsWith('/');
+
+          // Set default dest-dir based on path type
+          if (!destDir) {
+            destDir = hasAbsolutePaths ? '/' : '/home';
+          }
+
+          context.writeln(`Extracting ${hasAbsolutePaths ? 'absolute' : 'relative'} paths to ${destDir}...`);
+
+          // Sort entries: directories first, then by depth
+          const sortedEntries = entries.slice().sort((a, b) => {
+            if (a.type === 'directory' && b.type !== 'directory') return -1;
+            if (a.type !== 'directory' && b.type === 'directory') return 1;
+            const aDepth = a.path.split('/').length;
+            const bDepth = b.path.split('/').length;
+            return aDepth - bDepth;
+          });
+
+          let filesExtracted = 0;
+          let dirsCreated = 0;
+
+          for (const entry of sortedEntries) {
+            // Determine target path based on whether archive uses absolute or relative paths
+            let targetPath;
+            if (hasAbsolutePaths) {
+              // Absolute paths: extract to original location or rebased to dest-dir
+              targetPath = destDir === '/' ? entry.path : `${destDir}${entry.path}`;
+            } else {
+              // Relative paths: extract relative to dest-dir
+              if (entry.path === '.') {
+                // Root of archive maps to dest-dir itself
+                targetPath = destDir;
+              } else {
+                targetPath = `${destDir}/${entry.path}`;
+              }
+            }
+
+            if (entry.type === 'directory') {
+              try {
+                // Ensure parent directories exist
+                const parts = targetPath.split('/').filter(Boolean);
+                for (let i = 1; i <= parts.length; i++) {
+                  const dirPath = '/' + parts.slice(0, i).join('/');
+                  try {
+                    await kernel.mkdir(dirPath);
+                  } catch (e) {
+                    // Directory might exist
+                  }
+                }
+                dirsCreated++;
+                if (flags.verbose) {
+                  context.writeln(`  mkdir ${targetPath}`);
+                }
+              } catch (e) {
+                // Directory might exist
+              }
+            } else if (entry.type === 'file') {
+              // Ensure parent directory exists
+              const parentDir = targetPath.substring(0, targetPath.lastIndexOf('/')) || '/';
+              if (parentDir !== '/') {
+                const parts = parentDir.split('/').filter(Boolean);
+                for (let i = 1; i <= parts.length; i++) {
+                  const dirPath = '/' + parts.slice(0, i).join('/');
+                  try {
+                    await kernel.mkdir(dirPath);
+                  } catch (e) {
+                    // Directory might exist
+                  }
+                }
+              }
+
+              // Check if file exists and force flag
+              if (!flags.force) {
+                try {
+                  await kernel.stat(targetPath);
+                  context.writeln(`\x1b[33mwarning: ${targetPath} exists (use --force to overwrite)\x1b[0m`);
+                  continue;
+                } catch (e) {
+                  // File doesn't exist, OK to write
+                }
+              }
+
+              await kernel.writeFile(targetPath, entry.content);
+              filesExtracted++;
+              if (flags.verbose) {
+                context.writeln(`  ${targetPath}`);
+              }
+            }
+          }
+
+          context.writeln('');
+          context.writeln(`\x1b[32mExtracted ${filesExtracted} files, ${dirsCreated} directories\x1b[0m`);
+          context.writeln(`From: ${archive.label} (${archive.created})`);
+          break;
+        }
+
+        case 'list': {
+          if (subArgs.length < 1) {
+            context.writeln('\x1b[31merror: list requires <input.kmt>\x1b[0m');
+            context.writeln('Usage: kmt list <input.kmt> [options]');
+            return 1;
+          }
+
+          const inputFile = subArgs[0];
+          const flags = {
+            long: subArgs.includes('--long') || subArgs.includes('-l'),
+          };
+
+          const archivePath = inputFile.startsWith('/') ? inputFile : `/home/${inputFile}`;
+          const archiveJSON = await kernel.readFile(archivePath);
+          const archive = JSON.parse(archiveJSON);
+
+          if (archive.format !== 'kmt') {
+            context.writeln('\x1b[31merror: invalid KMT archive format\x1b[0m');
+            return 1;
+          }
+
+          // Decompress if needed
+          let entriesJSON;
+          if (archive.compression === 'gzip') {
+            const compressedData = atob(archive.data);
+            entriesJSON = await decompressString(compressedData);
+          } else {
+            entriesJSON = base64ToUtf8(archive.data);
+          }
+
+          const entries = JSON.parse(entriesJSON);
+
+          // Detect path type
+          const hasAbsolutePaths = entries.length > 0 && entries[0].path.startsWith('/');
+
+          context.writeln(`Archive: ${archive.label}`);
+          context.writeln(`Created: ${archive.created}`);
+          context.writeln(`Path type: ${hasAbsolutePaths ? 'absolute' : 'relative'}`);
+          context.writeln(`Files: ${archive.stats.files || archive.stats.files === 0 ? archive.stats.files : entries.filter(e => e.type === 'file').length}`);
+          context.writeln(`Directories: ${archive.stats.directories || archive.stats.directories === 0 ? archive.stats.directories : entries.filter(e => e.type === 'directory').length}`);
+          context.writeln(`Compression: ${archive.compression}`);
+          context.writeln('');
+
+          if (flags.long) {
+            // Show detailed listing
+            for (const entry of entries) {
+              if (entry.type === 'directory') {
+                context.writeln(`\x1b[34md\x1b[0m ${entry.path}/`);
+              } else {
+                const size = entry.size || entry.content.length;
+                const sizeStr = size < 1024 ? `${size}B` : `${(size / 1024).toFixed(1)}K`;
+                context.writeln(`  ${sizeStr.padStart(8)} ${entry.path}`);
+              }
+            }
+          } else {
+            // Show simple listing
+            for (const entry of entries) {
+              if (entry.type === 'directory') {
+                context.writeln(`\x1b[34m${entry.path}/\x1b[0m`);
+              } else {
+                context.writeln(entry.path);
+              }
+            }
+          }
+          break;
+        }
+
+        case 'info': {
+          if (subArgs.length < 1) {
+            context.writeln('\x1b[31merror: info requires <input.kmt>\x1b[0m');
+            context.writeln('Usage: kmt info <input.kmt>');
+            return 1;
+          }
+
+          const inputFile = subArgs[0];
+          const archivePath = inputFile.startsWith('/') ? inputFile : `/home/${inputFile}`;
+          const archiveJSON = await kernel.readFile(archivePath);
+          const archive = JSON.parse(archiveJSON);
+
+          if (archive.format !== 'kmt') {
+            context.writeln('\x1b[31merror: invalid KMT archive format\x1b[0m');
+            return 1;
+          }
+
+          context.writeln(`\x1b[1mKMT Archive Information\x1b[0m`);
+          context.writeln('');
+          context.writeln(`Format:      ${archive.format}`);
+          context.writeln(`Version:     ${archive.version}`);
+          context.writeln(`Label:       ${archive.label}`);
+          context.writeln(`Created:     ${archive.created}`);
+          context.writeln(`Compression: ${archive.compression}`);
+          context.writeln('');
+          context.writeln(`\x1b[1mStatistics:\x1b[0m`);
+          context.writeln(`Files:       ${archive.stats.files !== undefined ? archive.stats.files : 'N/A'}`);
+          context.writeln(`Directories: ${archive.stats.directories !== undefined ? archive.stats.directories : 'N/A'}`);
+
+          if (archive.compression === 'gzip') {
+            context.writeln(`Size (uncompressed): ${(archive.stats.size_uncompressed / 1024).toFixed(1)} KB`);
+            context.writeln(`Size (compressed):   ${(archive.stats.size_compressed / 1024).toFixed(1)} KB`);
+            context.writeln(`Compression ratio:   ${archive.stats.compression_ratio}`);
+          } else {
+            context.writeln(`Size: ${(archive.stats.size / 1024).toFixed(1)} KB`);
+          }
+
+          context.writeln('');
+          context.writeln(`\x1b[1mChecksums:\x1b[0m`);
+          context.writeln(`Uncompressed: ${archive.checksum.uncompressed}`);
+          if (archive.checksum.compressed) {
+            context.writeln(`Compressed:   ${archive.checksum.compressed}`);
+          }
+          break;
+        }
+
+        default:
+          context.writeln(`\x1b[31merror: unknown subcommand '${subcommand}'\x1b[0m`);
+          context.writeln('Usage: kmt <pack|unpack|list|info> [options]');
+          context.writeln('Run \'kmt --help\' for more information');
+          return 1;
+      }
+
+    } catch (error) {
+      context.writeln(`\x1b[31merror: ${error.message}\x1b[0m`);
+      console.error('[kmt]', error);
+      return 1;
+    }
+  }, {
+    description: 'Manipulate KMT archives (pack/unpack/list/info)',
+    category: 'filesystem'
+  });
+
   // test command - Evaluate conditional expressions
   shell.registerCommand('test', test, {
     description: 'Evaluate conditional expression',
@@ -1379,8 +2033,24 @@ export function registerShellCommands(shell, tabManager = null) {
     const parsed = argparse.parse(args, schema);
 
     try {
+      // -e flag: evaluate expression (check this FIRST, before -i)
+      if (parsed.flags['-e']) {
+        const exprIndex = args.indexOf('-e');
+        if (exprIndex === -1 || exprIndex + 1 >= args.length) {
+          showError(shell.term, 'schist', 'missing expression after -e');
+          return 1;
+        }
+
+        const exprStr = args[exprIndex + 1];
+        const expr = parseSchist(exprStr);
+        const env = createSchistEnv();
+        const result = await evaluateSchist(expr, env, context);
+        context.writeln(schistToString(result));
+        return 0;
+      }
+
       // -i flag: Interactive REPL mode
-      if (parsed.flags['-i'] !== undefined) {
+      if (parsed.flags['-i']) {
         context.writeln('Schist REPL v1.0');
         context.writeln('Type expressions to evaluate, Ctrl+C to exit');
         context.writeln('');
@@ -1439,22 +2109,6 @@ export function registerShellCommands(shell, tabManager = null) {
         }
       }
 
-      // -e flag: evaluate expression
-      if (parsed.flags['-e'] !== undefined) {
-        const exprIndex = args.indexOf('-e');
-        if (exprIndex === -1 || exprIndex + 1 >= args.length) {
-          showError(shell.term, 'schist', 'missing expression after -e');
-          return 1;
-        }
-
-        const exprStr = args[exprIndex + 1];
-        const expr = parseSchist(exprStr);
-        const env = createSchistEnv();
-        const result = await evaluateSchist(expr, env, context);
-        context.writeln(schistToString(result));
-        return 0;
-      }
-
       // File execution
       if (parsed.positional.length > 0) {
         const kernel = await getKernel();
@@ -1494,4 +2148,7 @@ export function registerShellCommands(shell, tabManager = null) {
     description: 'Schist Lisp/Scheme interpreter',
     category: 'shell'
   });
+
+  // Register RTTY commands for amateur radio digital mode
+  registerRTTYCommands(shell);
 }

@@ -233,10 +233,17 @@ function usage(commandName, schema = {}) {
     lines.push('Flags:');
 
     Object.entries(schema.flags).forEach(([name, spec]) => {
-      const shortPart = spec.short ? `-${spec.short}, ` : '    ';
-      const longPart = `--${name}`;
-      const desc = spec.description || '';
-      lines.push(`  ${shortPart}${longPart}     ${desc}`);
+      // Handle both string format and object format
+      if (typeof spec === 'string') {
+        // Simple format: '-i': 'description'
+        lines.push(`  ${name}     ${spec}`);
+      } else {
+        // Object format: 'verbose': { short: 'v', description: '...' }
+        const shortPart = spec.short ? `-${spec.short}, ` : '    ';
+        const longPart = `--${name}`;
+        const desc = spec.description || '';
+        lines.push(`  ${shortPart}${longPart}     ${desc}`);
+      }
     });
 
     lines.push('');

@@ -25,7 +25,7 @@ export class Shell {
   }
 
   /**
-   * Register a command handler
+   * Register a command handler with error boundary wrapper
    * @param {string} name - Command name
    * @param {Function} handler - Command handler function
    * @param {Object} [metadata] - Optional metadata for help system
@@ -33,7 +33,26 @@ export class Shell {
    * @param {string} [metadata.category] - Category (filesystem, shell, process, etc.)
    */
   registerCommand(name, handler, metadata = null) {
-    this.commands.set(name, handler);
+    // Wrap handler in error boundary to protect shell from crashes
+    const wrappedHandler = async (...args) => {
+      try {
+        return await handler(...args);
+      } catch (error) {
+        // This is a safety net - should never be reached if commands handle errors properly
+        console.error(`[Shell] Uncaught error in command '${name}':`, error);
+        const [, shell, context] = args;
+        if (context && context.writeln) {
+          context.writeln(`\x1b[31m[CRITICAL] Uncaught error in '${name}': ${error.message}\x1b[0m`);
+          context.writeln(`\x1b[33mPlease report this bug with steps to reproduce\x1b[0m`);
+        } else if (shell && shell.term) {
+          shell.term.writeln(`\x1b[31m[CRITICAL] Uncaught error in '${name}': ${error.message}\x1b[0m`);
+          shell.term.writeln(`\x1b[33mPlease report this bug with steps to reproduce\x1b[0m`);
+        }
+        throw error; // Re-throw to maintain error propagation
+      }
+    };
+
+    this.commands.set(name, wrappedHandler);
 
     // Register metadata if provided
     if (metadata) {

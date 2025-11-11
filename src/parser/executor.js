@@ -104,7 +104,7 @@ export class Executor {
     try {
       const handler = this.shell.commands.get(node.command);
       const { createTerminalContext } = await import('../utils/command-context.js');
-      const context = createTerminalContext(this.shell.term);
+      const context = createTerminalContext(this.shell.term, this.shell);
       context.commandName = node.command; // Add command name for special commands like [
 
       const result = await handler(expandedArgs, this.shell, context);

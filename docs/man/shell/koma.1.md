@@ -6,6 +6,8 @@ koma - Koma system management
 
 ```bash
 koma version
+koma insert <archive> [options]
+koma eject <name>
 koma update
 koma upgrade
 koma reset
@@ -41,6 +43,80 @@ Man pages: 37
 Last update: 2025-11-10T15:30:00.000Z
 Status: Up to date
 ```
+
+### koma insert
+
+Download and unpack KMT archives from the Koma store. The store is a collection of curated archives (examples, templates, utilities) that can be easily installed into your Koma environment.
+
+**Synopsis:**
+```bash
+koma insert <archive> [options]
+```
+
+The `.kmt` extension is automatically appended if not provided, so `koma insert examples` is equivalent to `koma insert examples.kmt`.
+
+**Options:**
+- `--download-only` - Download archive to `/media/` without unpacking
+- `--to <dir>` - Unpack to custom directory
+
+**How it works:**
+1. Downloads archive from `<origin>/store/<archive.kmt>`
+2. Verifies KMT format and checksums
+3. Unpacks to `/media/<name>/` (or custom location)
+4. Makes content immediately available
+
+**Examples:**
+```bash
+# Download and unpack Schist examples
+koma insert examples
+# Files available at: /media/examples/
+
+# Download only
+koma insert examples --download-only
+# Saved to: /media/examples.kmt
+
+# Unpack to custom location
+koma insert examples --to /home/examples
+```
+
+**Available archives:**
+- `examples.kmt` - Schist Lisp examples (4 files, 3.1KB)
+
+Check `/store/README.md` in the repository for the full catalog.
+
+**Notes:**
+- Store URL is auto-detected from `window.location.origin`
+- Archives use relative paths for portability
+- All archives are verified with SHA-256 checksums
+- Failed downloads are automatically cleaned up
+
+### koma eject
+
+Remove (eject) a KMT tape from the `/media/` directory. This command is the counterpart to `koma insert` and removes either unpacked directories or downloaded KMT files.
+
+**Synopsis:**
+```bash
+koma eject <name>
+```
+
+**Examples:**
+```bash
+# Eject unpacked examples
+koma eject examples
+# Removes: /media/examples/ and all contents
+
+# Eject downloaded KMT file
+koma eject examples.kmt
+# Removes: /media/examples.kmt
+```
+
+**Notes:**
+- Automatically detects whether the target is a directory or file
+- Recursively removes directories and all their contents
+- Operates only on `/media/` directory (safe operation)
+- Equivalent to `rm -r /media/<name>`
+
+**Warning:** This permanently deletes the specified tape. To restore it, use `koma insert` to download it again.
 
 ### koma update
 
@@ -184,7 +260,7 @@ koma reset
 
 ## SEE ALSO
 
-help(1), man(1), restart(1)
+help(1), man(1), restart(1), kmt(1), kmt(5)
 
 ## HISTORY
 
