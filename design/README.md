@@ -16,6 +16,8 @@ The design is rooted in **retrospec engineering** - creating technology that cou
 
 ## Documentation Structure
 
+> **Note**: The `lore/` directory has been moved here from `docs/lore/` but has not yet been reorganized according to the wabisabi design documentation tiering system. It contains valuable context about the project's origins and aesthetic philosophy.
+
 ### [Visual Language](./visual-language.md)
 Complete specification of Koma's visual design system:
 - Color palette (phosphor green, lava orange, deep charcoal)
@@ -177,9 +179,9 @@ The vertical activity indicator on the tab bar's right edge:
 
 ## Related Documentation
 
-- [Lore: Terminal Aesthetics](../lore/terminal-aesthetics.md) - Deep dive into influences
-- [Lore: Komatiite Connection](../lore/komatiite-connection.md) - Geological naming origins
-- [Lore: Retrospec Engineering](../lore/retrospec-engineering.md) - Design philosophy
+- [Lore: Terminal Aesthetics](./lore/terminal-aesthetics.md) - Deep dive into influences
+- [Lore: Komatiite Connection](./lore/komatiite-connection.md) - Geological naming origins
+- [Lore: Retrospec Engineering](./lore/retrospec-engineering.md) - Design philosophy
 
 ## For Contributors
 
