@@ -15,7 +15,8 @@ Extracted from [koma](https://github.com/your-org/koma) - battle-tested in produ
 - 📊 **Tables & Boxes** - Formatted data display
 - ⏳ **Progress Indicators** - Spinners and progress bars
 - ⌨️  **Key Handling** - Simplified keyboard input
-- ⚡ **Tab Completion** - Bash-style autocomplete with registry support
+- ⚡ **Tab Completion** - Bash-style autocomplete with flag/option completion
+- 📋 **Command Registry** - Central command management with schema storage
 - 💅 **Output Formatting** - Colors, sizing, dates
 - 🔍 **Command Parsing** - Quote-aware tokenization
 
@@ -490,34 +491,93 @@ if (KeyHandler.matches(data, 'ctrl+c')) {
 - `start()` - Start editing
 - `stop()` - Stop editing
 
-### 11. Tab Completion (`autocomplete.js`)
+### 11. Command Registry (`command-registry.js`)
 
-Intelligent command and argument completion with bash-style behavior.
+Central command management with schema storage. Enables intelligent autocomplete with flag/option completion.
 
 ```javascript
-import { Autocomplete, createTabHandler, fromRegistry } from './lib/xterm-kit/autocomplete.js';
+import { CommandRegistry } from './lib/xterm-kit/command-registry.js';
 
-// Option 1: Static command/subcommand lists
+const registry = new CommandRegistry();
+
+// Register command with full schema
+registry.register('ls', {
+  description: 'List directory contents',
+  category: 'filesystem',
+  schema: {
+    description: 'List files and directories',
+    flags: {
+      long: { short: 'l', description: 'Long format' },
+      all: { short: 'a', description: 'Show hidden files' }
+    },
+    options: {
+      format: {
+        description: 'Output format',
+        choices: ['json', 'yaml', 'table']
+      }
+    }
+  },
+  handler: lsCommand  // Optional
+});
+
+// Get command metadata
+const cmd = registry.getCommand('ls');
+const schema = registry.getSchema('ls');
+const handler = registry.getHandler('ls');
+
+// Query commands
+const allCommands = registry.getCommands();
+const filesystemCmds = registry.getCommands('filesystem');
+const categories = registry.getCategories();
+const byCategory = registry.getByCategory();
+
+// Management
+registry.has('ls');      // true
+registry.unregister('ls');
+registry.clear();
+registry.size();         // Number of commands
+```
+
+**API:**
+- `register(name, metadata)` - Register command with schema
+- `getCommand(name)` - Get command metadata
+- `getSchema(name)` - Get argparse schema
+- `getHandler(name)` - Get handler function
+- `getCommands(category?)` - Get all commands
+- `getCategories()` - Get all categories
+- `has(name)` / `unregister(name)` / `clear()` - Management
+
+### 12. Tab Completion (`autocomplete.js`)
+
+Intelligent command and argument completion with bash-style behavior and schema-based flag/option completion.
+
+```javascript
+import { Autocomplete, createTabHandler } from './lib/xterm-kit/autocomplete.js';
+import { CommandRegistry } from './lib/xterm-kit/command-registry.js';
+
+// Option 1: With CommandRegistry (RECOMMENDED - unlocks schema-based completion!)
+const registry = new CommandRegistry();
+registry.register('ls', {
+  schema: {
+    flags: { long: { short: 'l' }, all: { short: 'a' } },
+    options: { format: { choices: ['json', 'yaml', 'table'] } }
+  }
+});
+
+const completer = new Autocomplete({ registry });
+
+// Now autocomplete supports:
+// ls --<tab>        → --long, --all, --format
+// ls -<tab>         → -l, -a
+// ls --format <tab> → json, yaml, table
+
+// Option 2: Static command/subcommand lists (no schema support)
 const completer = new Autocomplete({
   commands: ['help', 'books', 'status', 'clear'],
   subcommands: {
     'books': ['list', 'search', 'add'],
     'status': ['show', 'daemon']
   }
-});
-
-// Option 2: With command registry (auto-syncs, no duplication!)
-import { commandRegistry } from './utils/command-registry.js';
-const completer = new Autocomplete({
-  registry: commandRegistry,
-  subcommands: {
-    'books': ['list', 'search', 'add']
-  }
-});
-
-// Or use the helper
-const completer = fromRegistry(commandRegistry, {
-  'books': ['list', 'search', 'add']
 });
 
 // Option 3: With custom completion functions
@@ -575,7 +635,8 @@ const options = completer.getCompletions('books ');
 - **Single match**: Auto-completes immediately
 - **Multiple matches**: Shows options (bash-style)
 - **No matches**: Silent (like real terminals)
-- **Multi-level**: Commands → subcommands → custom completers
+- **Multi-level**: Commands → subcommands → flags → option values → custom completers
+- **Schema-based**: Auto-completes --flags, -f, and option choices from argparse schemas
 
 **API:**
 - `new Autocomplete(options)` - Create completer

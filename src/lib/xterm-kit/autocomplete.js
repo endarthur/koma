@@ -4,33 +4,41 @@
  * Provides intelligent command and argument completion with support for:
  * - Static command/subcommand lists
  * - Registry-based command extraction
- * - Multi-level completion (commands → subcommands → arguments)
+ * - Schema-based flag/option completion (--flag, -f)
+ * - Option value completion from choices
+ * - Multi-level completion (commands → subcommands → flags → values)
  * - Bash-style behavior (single match completes, multiple shows options)
  * - Custom completion functions
  *
  * Usage:
  * ```javascript
  * import { Autocomplete } from 'xterm-kit/autocomplete.js';
+ * import { CommandRegistry } from 'xterm-kit/command-registry.js';
  *
- * // Simple static lists
+ * // With command registry (recommended - unlocks schema-based completion)
+ * const registry = new CommandRegistry();
+ * registry.register('ls', {
+ *   description: 'List files',
+ *   schema: {
+ *     flags: { long: { short: 'l', description: 'Long format' } },
+ *     options: { format: { choices: ['json', 'yaml', 'table'] } }
+ *   }
+ * });
+ *
+ * const completer = new Autocomplete({ registry });
+ *
+ * // Now supports:
+ * // ls --<tab>        → --long, --format
+ * // ls -<tab>         → -l
+ * // ls --format <tab> → json, yaml, table
+ *
+ * // Simple static lists (no schema support)
  * const completer = new Autocomplete({
  *   commands: ['help', 'books', 'status'],
  *   subcommands: {
  *     'books': ['list', 'search', 'add']
  *   }
  * });
- *
- * // Or with command registry
- * const completer = new Autocomplete({
- *   registry: commandRegistry
- * });
- *
- * // Get completion
- * const result = completer.complete(currentLine, cursorPos);
- * if (result) {
- *   currentLine = result.line;
- *   cursorPos = result.cursor;
- * }
  * ```
  */
 
@@ -122,8 +130,9 @@ export class Autocomplete {
       };
     } else if (parts.length >= 1) {
       // Complete subcommand or arguments
-      const cmd = this._normalize(parts[0]);
+      const cmd = parts[0];
       const level = parts.length - (hasTrailingSpace ? 0 : 1);
+      const currentToken = hasTrailingSpace ? '' : parts[parts.length - 1];
 
       // Check for custom completer first
       const completerKey = parts.slice(0, level + 1).join(' ');
@@ -137,6 +146,48 @@ export class Autocomplete {
           type: 'custom',
           level
         };
+      }
+
+      // Check for flag/option completion from registry schema
+      if (this.registry) {
+        const schema = this.registry.getSchema(cmd);
+
+        if (schema) {
+          // Completing a flag or option (starts with -)
+          if (currentToken.startsWith('-')) {
+            const flagCompletions = this._getFlagCompletions(schema, currentToken);
+            if (flagCompletions.length > 0) {
+              return {
+                completions: flagCompletions,
+                partial: currentToken,
+                type: 'flag',
+                level
+              };
+            }
+          }
+
+          // Check if previous token was an option that expects a value
+          if (parts.length >= 2 && !currentToken.startsWith('-')) {
+            const prevToken = parts[parts.length - (hasTrailingSpace ? 1 : 2)];
+            if (prevToken.startsWith('--')) {
+              const optionName = prevToken.slice(2);
+              const choices = this._getOptionChoices(schema, optionName);
+              if (choices && choices.length > 0) {
+                const matches = choices.filter(choice =>
+                  this._normalize(choice).startsWith(this._normalize(currentToken))
+                );
+                if (matches.length > 0) {
+                  return {
+                    completions: matches,
+                    partial: currentToken,
+                    type: 'option-value',
+                    level
+                  };
+                }
+              }
+            }
+          }
+        }
       }
 
       // Check subcommands
@@ -228,6 +279,75 @@ export class Autocomplete {
     }
 
     return prefix;
+  }
+
+  /**
+   * Get flag and option completions from schema
+   * @private
+   * @param {Object} schema - Argparse schema
+   * @param {string} partial - Partial flag/option being typed
+   * @returns {string[]} Array of matching flags/options
+   */
+  _getFlagCompletions(schema, partial) {
+    const completions = [];
+
+    // Add flags (--flag, -f)
+    if (schema.flags) {
+      for (const [name, flagDef] of Object.entries(schema.flags)) {
+        const longFlag = '--' + name;
+        const shortFlag = flagDef.short ? '-' + flagDef.short : null;
+
+        if (partial.startsWith('--')) {
+          // Complete long flag
+          if (longFlag.startsWith(partial)) {
+            completions.push(longFlag);
+          }
+        } else if (partial.startsWith('-') && !partial.startsWith('--')) {
+          // Complete short flag
+          if (shortFlag && shortFlag.startsWith(partial)) {
+            completions.push(shortFlag);
+          }
+        }
+      }
+    }
+
+    // Add options (--option, -o)
+    if (schema.options) {
+      for (const [name, optDef] of Object.entries(schema.options)) {
+        const longOpt = '--' + name;
+        const shortOpt = optDef.short ? '-' + optDef.short : null;
+
+        if (partial.startsWith('--')) {
+          // Complete long option
+          if (longOpt.startsWith(partial)) {
+            completions.push(longOpt);
+          }
+        } else if (partial.startsWith('-') && !partial.startsWith('--')) {
+          // Complete short option
+          if (shortOpt && shortOpt.startsWith(partial)) {
+            completions.push(shortOpt);
+          }
+        }
+      }
+    }
+
+    return completions;
+  }
+
+  /**
+   * Get choice values for an option from schema
+   * @private
+   * @param {Object} schema - Argparse schema
+   * @param {string} optionName - Option name (without --)
+   * @returns {string[]|null} Array of choices or null
+   */
+  _getOptionChoices(schema, optionName) {
+    if (!schema.options || !schema.options[optionName]) {
+      return null;
+    }
+
+    const optDef = schema.options[optionName];
+    return optDef.choices || null;
   }
 
   /**

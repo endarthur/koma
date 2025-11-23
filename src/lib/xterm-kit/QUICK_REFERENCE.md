@@ -114,12 +114,22 @@ new KeyHandler(term: Terminal)
 keys.on(key: string, handler: Function): void
 keys.start(): void
 
-// autocomplete.js
-new Autocomplete(options: {commands?, subcommands?, registry?})
-autocomplete.complete(line: string, cursorPos?: number): {line, cursor, action}
-autocomplete.getCompletions(line: string): {completions, partial, type}
+// command-registry.js
+new CommandRegistry()
+registry.register(name: string, metadata: object): void
+registry.getCommand(name: string): object
+registry.getSchema(name: string): object
+registry.getHandler(name: string): Function
+registry.getCommands(category?: string): object[]
+registry.has(name: string): boolean
+
+// autocomplete.js (with schema-based flag/option completion!)
+new Autocomplete(options: {commands?, subcommands?, registry?, completers?})
+autocomplete.complete(line: string, cursorPos?: number): {line, cursor, action, completions}
+autocomplete.getCompletions(line: string): {completions, partial, type, level}
+autocomplete.addCompleter(context: string, fn: Function): void
 createTabHandler(term: Terminal, completer: Autocomplete, state: object, redrawFn: Function): Function
-fromRegistry(registry: object, subcommands?: object): Autocomplete
+fromRegistry(registry: CommandRegistry, subcommands?: object): Autocomplete
 ```
 
 ## Common Schemas
@@ -270,60 +280,89 @@ const backup = JSON.parse(localStorage.getItem('backup'));
 await vfs.importJSON(backup);
 ```
 
-## Autocomplete Pattern
+## Registry + Autocomplete Pattern (RECOMMENDED)
+
+```javascript
+import { CommandRegistry } from './lib/xterm-kit/command-registry.js';
+import { Autocomplete, createTabHandler } from './lib/xterm-kit/autocomplete.js';
+
+// 1. Create registry and register commands with schemas
+const registry = new CommandRegistry();
+
+registry.register('ls', {
+  description: 'List files',
+  category: 'filesystem',
+  schema: {
+    flags: {
+      long: { short: 'l', description: 'Long format' },
+      all: { short: 'a', description: 'Show all' }
+    },
+    options: {
+      format: { choices: ['json', 'yaml', 'table'] }
+    }
+  },
+  handler: lsCommand
+});
+
+registry.register('cat', {
+  description: 'Read file',
+  schema: {
+    flags: { number: { short: 'n', description: 'Number lines' } }
+  },
+  handler: catCommand
+});
+
+// 2. Create autocomplete with registry (unlocks schema-based completion!)
+const completer = new Autocomplete({ registry });
+
+// Now supports:
+// ls --<tab>        → --long, --all, --format
+// ls -<tab>         → -l, -a
+// ls --format <tab> → json, yaml, table
+// cat --<tab>       → --number
+// cat -<tab>        → -n
+
+// 3. Integrate with terminal
+const state = { currentLine: '', cursorPos: 0 };
+
+const handleTab = createTabHandler(term, completer, state, (line) => {
+  term.write('\r\x1b[K\x1b[32m$\x1b[0m ' + line);
+});
+
+term.onData(data => {
+  if (data === '\t') {
+    handleTab();
+  } else if (data === '\r') {
+    // Execute command using registry handler
+    const [cmdName, ...args] = state.currentLine.split(/\s+/);
+    const handler = registry.getHandler(cmdName);
+    if (handler) {
+      await handler(args, shell, context);
+    }
+  }
+});
+```
+
+## Static Autocomplete Pattern (no schema support)
 
 ```javascript
 import { Autocomplete, createTabHandler } from './lib/xterm-kit/autocomplete.js';
 
-// Option 1: Static lists
 const completer = new Autocomplete({
   commands: ['help', 'books', 'status', 'clear'],
   subcommands: {
-    'books': ['list', 'search', 'add'],
-    'status': ['show', 'daemon']
-  }
-});
-
-// Option 2: With command registry (DRY - no duplication!)
-import { commandRegistry } from './utils/command-registry.js';
-const completer = new Autocomplete({
-  registry: commandRegistry,
-  subcommands: {
     'books': ['list', 'search', 'add']
-  }
-});
-
-// Option 3: With custom completers (e.g., dynamic file paths)
-const completer = new Autocomplete({
-  commands: ['cat', 'ls', 'cd'],
+  },
   completers: {
     'cat': async (partial) => {
-      // Return matching file names
+      // Dynamic file path completion
       const files = await vfs.readdir('/');
       return files.filter(f => f.name.startsWith(partial)).map(f => f.name);
     }
   }
 });
 
-// Integrate with input handler
-const state = { currentLine: '', cursorPos: 0 };
-
-const handleTab = createTabHandler(term, completer, state, (line) => {
-  // Redraw prompt + line
-  term.write('\r\x1b[K\x1b[32m$\x1b[0m ' + line);
-});
-
-term.onData(data => {
-  if (data === '\t') {  // Tab key
-    handleTab();
-  } else if (data === '\r') {  // Enter
-    // ... execute command
-  } else {
-    // ... handle other input
-    state.currentLine += data;
-    state.cursorPos++;
-  }
-});
+// Integrate same as above...
 ```
 
 ## Command Template
@@ -390,19 +429,20 @@ KEYS.BACKSPACE, KEYS.DELETE, KEYS.TAB, KEYS.ENTER, KEYS.ESCAPE
 ## Module File Sizes
 
 ```
-argparse.js      ~360 lines   Argument parsing
-output.js        ~200 lines   Formatted output
-parser.js        ~157 lines   Command parsing
-themes.js        ~248 lines   Theme system
-pager.js         ~401 lines   Interactive viewer
-indicators.js    ~265 lines   Status LEDs
-vfs-lite.js      ~620 lines   Virtual filesystem
-progress.js      ~248 lines   Progress indicators
-table.js         ~153 lines   Tables
-box.js           ~258 lines   Borders/boxes
-keys.js          ~265 lines   Keyboard handling
-autocomplete.js  ~320 lines   Tab completion
-Total: ~3,900 lines, 0 dependencies
+argparse.js          ~360 lines   Argument parsing
+output.js            ~200 lines   Formatted output
+parser.js            ~157 lines   Command parsing
+themes.js            ~248 lines   Theme system
+pager.js             ~401 lines   Interactive viewer
+indicators.js        ~265 lines   Status LEDs
+vfs-lite.js          ~620 lines   Virtual filesystem
+progress.js          ~248 lines   Progress indicators
+table.js             ~153 lines   Tables
+box.js               ~258 lines   Borders/boxes
+keys.js              ~265 lines   Keyboard handling
+command-registry.js  ~221 lines   Command management
+autocomplete.js      ~400 lines   Tab completion with schema support
+Total: ~4,200 lines, 0 dependencies
 ```
 
 ## When to Use What
@@ -421,7 +461,9 @@ Total: ~3,900 lines, 0 dependencies
 | Handle Ctrl+C, arrows | keys.js |
 | Build line editor | keys.js (LineEditor) |
 | Show status LEDs | indicators.js |
-| Tab completion for commands | autocomplete.js |
+| Manage commands with metadata | command-registry.js |
+| Tab completion (basic) | autocomplete.js |
+| Tab completion + flag/option completion | command-registry.js + autocomplete.js |
 
 ## Zero to Hero in 5 Minutes
 

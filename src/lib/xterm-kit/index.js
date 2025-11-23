@@ -5,7 +5,7 @@
  * A comprehensive toolkit for building shell-like applications in the browser.
  * Includes argument parsing, VFS, paging, progress indicators, and more.
  *
- * @version 1.0.0
+ * @version 1.1.0
  * @license MIT
  */
 
@@ -44,3 +44,6 @@ export { KeyHandler, LineEditor, KEYS } from './keys.js';
 
 // Tab completion
 export { Autocomplete, createTabHandler, fromRegistry } from './autocomplete.js';
+
+// Command registry
+export { CommandRegistry, createRegistry } from './command-registry.js';

@@ -17,6 +17,9 @@
 - Draw boxes/borders → `box.js`
 - Handle keyboard input → `keys.js`
 - Show status LEDs → `indicators.js`
+- Manage commands with metadata → `command-registry.js`
+- Add tab completion → `autocomplete.js`
+- Complete flags/options intelligently → `command-registry.js` + `autocomplete.js`
 
 ## Module-by-Module Reference
 
@@ -728,6 +731,245 @@ await indicators.wrapNetActivity(
   fetch('https://api.example.com')
 );
 ```
+
+---
+
+### command-registry.js - Command Management
+
+**When to use**: User needs to manage commands with metadata, schemas, and enable intelligent autocomplete
+
+**Central command registry with schema storage**. Enables deep integration with autocomplete for flag/option completion.
+
+**Basic registration**:
+```javascript
+import { CommandRegistry } from './lib/xterm-kit/command-registry.js';
+
+const registry = new CommandRegistry();
+
+// Register with full metadata
+registry.register('ls', {
+  description: 'List directory contents',
+  category: 'filesystem',
+  schema: {
+    description: 'List files and directories',
+    flags: {
+      long: { short: 'l', description: 'Long format' },
+      all: { short: 'a', description: 'Show hidden files' }
+    },
+    options: {
+      format: {
+        description: 'Output format',
+        choices: ['json', 'yaml', 'table']
+      }
+    },
+    positional: {
+      description: 'Directory to list'
+    }
+  },
+  handler: lsCommand,  // Optional command function
+  subcommands: null    // Optional subcommand map
+});
+```
+
+**Querying commands**:
+```javascript
+// Get specific command
+const cmd = registry.getCommand('ls');
+// { name: 'ls', description: '...', category: 'filesystem', schema: {...}, handler: fn }
+
+// Get just the schema (for autocomplete)
+const schema = registry.getSchema('ls');
+
+// Get handler function
+const handler = registry.getHandler('ls');
+if (handler) {
+  await handler(args, shell, context);
+}
+
+// Get all commands
+const allCommands = registry.getCommands();
+
+// Get by category
+const filesystemCmds = registry.getCommands('filesystem');
+
+// Get categories
+const categories = registry.getCategories();
+// ['filesystem', 'shell', 'network', ...]
+
+// Get all grouped by category
+const byCategory = registry.getByCategory();
+// { filesystem: [...], shell: [...], ... }
+```
+
+**Management**:
+```javascript
+// Check existence
+if (registry.has('ls')) { /* ... */ }
+
+// Unregister
+registry.unregister('ls');
+
+// Clear all
+registry.clear();
+
+// Get count
+const count = registry.size();  // Number of commands
+```
+
+**Integration with autocomplete** (unlocks schema-based completion):
+```javascript
+import { Autocomplete } from './lib/xterm-kit/autocomplete.js';
+
+const completer = new Autocomplete({ registry });
+
+// Now autocomplete knows about:
+// - All registered commands
+// - All flags/options from schemas
+// - Choice values for options
+```
+
+**All methods**:
+- `register(name, metadata)` - Register command with schema
+- `getCommand(name)` - Get full command metadata
+- `getSchema(name)` - Get argparse schema
+- `getHandler(name)` - Get handler function
+- `getSubcommands(name)` - Get subcommands map
+- `getCommands(category?)` - Get all commands (optionally filtered)
+- `getCommandNames()` - Get array of command names
+- `getCategories()` - Get all categories
+- `getByCategory()` - Get commands grouped by category
+- `has(name)` - Check if command exists
+- `unregister(name)` - Remove command
+- `clear()` - Remove all commands
+- `size()` - Get command count
+
+---
+
+### autocomplete.js - Tab Completion
+
+**When to use**: User wants bash-style tab completion for commands, flags, and options
+
+**Intelligent autocomplete with schema-based flag/option completion**. Deep integration with CommandRegistry.
+
+**With CommandRegistry (RECOMMENDED)**:
+```javascript
+import { Autocomplete } from './lib/xterm-kit/autocomplete.js';
+import { CommandRegistry } from './lib/xterm-kit/command-registry.js';
+
+const registry = new CommandRegistry();
+registry.register('ls', {
+  schema: {
+    flags: {
+      long: { short: 'l', description: 'Long format' },
+      all: { short: 'a', description: 'Show all' }
+    },
+    options: {
+      format: {
+        description: 'Output format',
+        choices: ['json', 'yaml', 'table']
+      }
+    }
+  }
+});
+
+const completer = new Autocomplete({ registry });
+
+// Autocomplete now supports:
+completer.complete('ls --');      // → --long, --all, --format
+completer.complete('ls -');       // → -l, -a
+completer.complete('ls --format '); // → json, yaml, table
+completer.complete('l');          // → ls (command completion)
+```
+
+**Without registry (static lists)**:
+```javascript
+const completer = new Autocomplete({
+  commands: ['help', 'books', 'status'],
+  subcommands: {
+    'books': ['list', 'search', 'add']
+  }
+});
+```
+
+**With custom completers**:
+```javascript
+const completer = new Autocomplete({
+  registry: registry,
+  completers: {
+    'cat': async (partial) => {
+      // Dynamic file path completion
+      const files = await vfs.readdir(currentDir);
+      return files
+        .filter(f => f.name.startsWith(partial))
+        .map(f => f.name);
+    }
+  }
+});
+```
+
+**Tab key integration**:
+```javascript
+import { createTabHandler } from './lib/xterm-kit/autocomplete.js';
+
+const state = { currentLine: '', cursorPos: 0 };
+
+const handleTab = createTabHandler(term, completer, state, (line) => {
+  // Redraw function
+  term.write('\r\x1b[K\x1b[32m$\x1b[0m ' + line);
+});
+
+term.onData(data => {
+  if (data === '\t') {
+    handleTab();
+  }
+});
+```
+
+**Manual completion**:
+```javascript
+const result = completer.complete('ls --lo', 7);
+if (result) {
+  if (result.action === 'completed') {
+    // Single match - update line
+    currentLine = result.line;      // 'ls --long'
+    cursorPos = result.cursor;      // 9
+  } else if (result.action === 'show_options') {
+    // Multiple matches - show to user
+    console.log(result.completions);  // ['--long', '--list', ...]
+  }
+}
+```
+
+**Get completions without applying**:
+```javascript
+const info = completer.getCompletions('ls -', 4);
+// {
+//   completions: ['-l', '-a'],
+//   partial: '-',
+//   type: 'flag',
+//   level: 1
+// }
+```
+
+**Completion types**:
+- `'command'` - Command names
+- `'subcommand'` - Subcommands
+- `'flag'` - Flags and options (--flag, -f)
+- `'option-value'` - Choice values for options
+- `'custom'` - From custom completer functions
+
+**All methods**:
+- `complete(line, cursorPos?)` - Apply completion to line
+- `getCompletions(line, cursorPos?)` - Get completion info
+- `addCompleter(context, fn)` - Add custom completer
+- `setCommands(commands)` - Update command list
+- `setSubcommands(subcommands)` - Update subcommand map
+- `refresh()` - Re-sync from registry
+- `getCommonPrefix(completions)` - Find common prefix
+
+**Helper functions**:
+- `createTabHandler(term, completer, state, redrawFn)` - Create Tab key handler
+- `fromRegistry(registry, subcommands?)` - Create autocomplete from registry
 
 ---
 
