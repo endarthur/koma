@@ -7,7 +7,7 @@
 ### From jsDelivr CDN (External Projects)
 ```javascript
 // Recommended: Use version tag
-import { parse, showSuccess, Pager, VFSLite } from 'https://cdn.jsdelivr.net/gh/endar/koma@v1.0.0/src/lib/xterm-kit/index.js';
+import { parse, showSuccess, Pager, VFSLite } from 'https://cdn.jsdelivr.net/gh/endar/koma@v1.1.0/src/lib/xterm-kit/index.js';
 
 // Or: Use latest from main
 import { parse, showSuccess, Pager, VFSLite } from 'https://cdn.jsdelivr.net/gh/endar/koma@main/src/lib/xterm-kit/index.js';
@@ -15,8 +15,8 @@ import { parse, showSuccess, Pager, VFSLite } from 'https://cdn.jsdelivr.net/gh/
 // With import map
 {
   "imports": {
-    "xterm-kit": "https://cdn.jsdelivr.net/gh/endar/koma@v1.0.0/src/lib/xterm-kit/index.js",
-    "xterm-kit/": "https://cdn.jsdelivr.net/gh/endar/koma@v1.0.0/src/lib/xterm-kit/"
+    "xterm-kit": "https://cdn.jsdelivr.net/gh/endar/koma@v1.1.0/src/lib/xterm-kit/index.js",
+    "xterm-kit/": "https://cdn.jsdelivr.net/gh/endar/koma@v1.1.0/src/lib/xterm-kit/"
   }
 }
 // Then: import { parse } from 'xterm-kit';

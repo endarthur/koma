@@ -28,13 +28,13 @@ Use xterm-kit directly from GitHub via jsDelivr CDN:
 
 ```javascript
 // Use specific version (recommended)
-import { parse, showSuccess, Pager, VFSLite } from 'https://cdn.jsdelivr.net/gh/endar/koma@v1.0.0/src/lib/xterm-kit/index.js';
+import { parse, showSuccess, Pager, VFSLite } from 'https://cdn.jsdelivr.net/gh/endar/koma@v1.1.0/src/lib/xterm-kit/index.js';
 
 // Or use latest from main branch
 import { parse, showSuccess, Pager, VFSLite } from 'https://cdn.jsdelivr.net/gh/endar/koma@main/src/lib/xterm-kit/index.js';
 
 // Individual modules
-import { Pager } from 'https://cdn.jsdelivr.net/gh/endar/koma@v1.0.0/src/lib/xterm-kit/pager.js';
+import { Pager } from 'https://cdn.jsdelivr.net/gh/endar/koma@v1.1.0/src/lib/xterm-kit/pager.js';
 ```
 
 **Benefits:**
@@ -49,8 +49,8 @@ import { Pager } from 'https://cdn.jsdelivr.net/gh/endar/koma@v1.0.0/src/lib/xte
 <script type="importmap">
 {
   "imports": {
-    "xterm-kit": "https://cdn.jsdelivr.net/gh/endar/koma@v1.0.0/src/lib/xterm-kit/index.js",
-    "xterm-kit/": "https://cdn.jsdelivr.net/gh/endar/koma@v1.0.0/src/lib/xterm-kit/"
+    "xterm-kit": "https://cdn.jsdelivr.net/gh/endar/koma@v1.1.0/src/lib/xterm-kit/index.js",
+    "xterm-kit/": "https://cdn.jsdelivr.net/gh/endar/koma@v1.1.0/src/lib/xterm-kit/"
   }
 }
 </script>
