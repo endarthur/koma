@@ -11,7 +11,7 @@ Package management system for KOMA with two complementary approaches: Provenance
 
 ### 🧪 Prototype
 
-#### Provenance Package Manager
+### Provenance Package Manager
 **Tags**: `#packages` `#prototype` `#medium` `#npm`
 **Status**: Planned for Phase 7 (NEXT UP!)
 **Phase**: 7
@@ -55,7 +55,7 @@ Package management system for KOMA with two complementary approaches: Provenance
 
 **Files**: Future `src/packages/provenance.js`, `src/commands/packages.js`
 
-#### Koma Registry
+### Koma Registry
 **Tags**: `#packages` `#prototype` `#medium` `#registry`
 **Status**: Planned for Phase 8
 **Phase**: 8
@@ -103,7 +103,7 @@ Package management system for KOMA with two complementary approaches: Provenance
 - Support for multi-file packages?
 - Package signing for security?
 
-#### Import Map Manipulation
+### Import Map Manipulation
 **Tags**: `#packages` `#prototype` `#critical` `#infrastructure`
 **Status**: Planned for Phase 7
 **Phase**: 7
@@ -132,7 +132,7 @@ Package management system for KOMA with two complementary approaches: Provenance
 
 **Likely Choice**: Start with Option 1 (page reload), explore Option 2/3 later
 
-#### Package Metadata Storage
+### Package Metadata Storage
 **Tags**: `#packages` `#prototype` `#high` `#data`
 **Status**: Planned for Phase 7
 **Phase**: 7
@@ -157,7 +157,7 @@ Package management system for KOMA with two complementary approaches: Provenance
 }
 ```
 
-#### Dependency Resolution
+### Dependency Resolution
 **Tags**: `#packages` `#prototype` `#medium` `#complexity`
 **Status**: Planned for Phase 7
 **Phase**: 7
@@ -175,7 +175,7 @@ Package management system for KOMA with two complementary approaches: Provenance
 - Circular dependencies
 - Storage limitations (IndexedDB quotas)
 
-#### Package Versioning
+### Package Versioning
 **Tags**: `#packages` `#prototype` `#high` `#versioning`
 **Status**: Planned for Phase 7
 **Phase**: 7
@@ -189,7 +189,7 @@ Package management system for KOMA with two complementary approaches: Provenance
 - `provenance upgrade` - Install newer versions
 - Lock file? (or just metadata.json)
 
-#### Offline Package Cache
+### Offline Package Cache
 **Tags**: `#packages` `#prototype` `#high` `#offline`
 **Status**: Planned for Phase 7
 **Phase**: 7

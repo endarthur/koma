@@ -11,7 +11,7 @@ IndexedDB-backed virtual filesystem with inode-based structure. Provides POSIX-l
 
 ### ✅ Production
 
-#### IndexedDB-Backed Storage
+### IndexedDB-Backed Storage
 **Tags**: `#vfs` `#production` `#critical` `#storage`
 **Status**: Stable, production-ready
 **Phase**: 3
@@ -26,7 +26,7 @@ IndexedDB-backed virtual filesystem with inode-based structure. Provides POSIX-l
 
 **Files**: `src/kernel/olivine.js` (VFS class)
 
-#### Inode-Based Structure
+### Inode-Based Structure
 **Tags**: `#vfs` `#production` `#critical` `#architecture`
 **Status**: Complete Unix-like filesystem structure
 **Phase**: 3
@@ -57,7 +57,7 @@ Inode:
 
 **Files**: `src/kernel/olivine.js` (VFS implementation)
 
-#### File I/O Operations
+### File I/O Operations
 **Tags**: `#vfs` `#production` `#critical` `#operations`
 **Status**: Complete text file operations
 **Phase**: 3
@@ -77,7 +77,7 @@ Inode:
 
 **Files**: `src/kernel/olivine.js` (VFS methods), `src/stdlib/fs.js` (stdlib wrapper)
 
-#### Directory Operations
+### Directory Operations
 **Tags**: `#vfs` `#production` `#critical` `#operations`
 **Status**: Complete directory management
 **Phase**: 3
@@ -93,7 +93,7 @@ Inode:
 
 **Files**: `src/kernel/olivine.js` (VFS methods)
 
-#### Database Migrations
+### Database Migrations
 **Tags**: `#vfs` `#production` `#high` `#maintenance`
 **Status**: Version-based schema upgrades
 **Phase**: 3, ongoing
@@ -108,7 +108,7 @@ Inode:
 
 **Files**: `src/kernel/olivine.js` (VFS initialization)
 
-#### System File Updates
+### System File Updates
 **Tags**: `#vfs` `#production` `#high` `#system`
 **Status**: Safe system updates without data loss
 **Phase**: 5.5
@@ -126,7 +126,7 @@ Inode:
 
 ### 🔧 Working
 
-#### Binary File Support
+### Binary File Support
 **Tags**: `#vfs` `#working` `#medium` `#enhancement`
 **Status**: Planned, not yet implemented
 **Phase**: Future (Phase 12+)
@@ -141,7 +141,7 @@ Inode:
 
 ### 🧪 Prototype
 
-#### File System Access API Integration
+### File System Access API Integration
 **Tags**: `#vfs` `#prototype` `#medium` `#native-files`
 **Status**: Planned for future phases
 **Phase**: Phase 12+
@@ -155,7 +155,7 @@ Inode:
 - Permission management
 - Sandboxing considerations
 
-#### Stream Large Files
+### Stream Large Files
 **Tags**: `#vfs` `#prototype` `#low` `#performance`
 **Status**: Deferred until needed
 **Phase**: Future

@@ -11,7 +11,7 @@ The shell parser and execution environment. Evolving from Thompson Shell (1971) 
 
 ### ✅ Production
 
-#### AST-Based Parser
+### AST-Based Parser
 **Tags**: `#shell` `#production` `#critical` `#parser`
 **Status**: Complete refactoring from string-based to AST
 **Phase**: 6
@@ -29,12 +29,12 @@ The shell parser and execution environment. Evolving from Thompson Shell (1971) 
 - Sequence (separated with ;)
 - Redirect (>, >>, <)
 - Assignment (VAR=value)
-- LogicalAnd (&&)
-- LogicalOr (||)
+- LogicalAnd (&&) - *defined, not implemented*
+- LogicalOr (||) - *defined, not implemented*
 
 **Files**: `src/parser/lexer.js`, `src/parser/parser.js`, `src/parser/executor.js`, `src/parser/ast-nodes.js`
 
-#### Pipes and Redirection
+### Pipes and Redirection
 **Tags**: `#shell` `#production` `#critical` `#composition`
 **Status**: Full Unix-style pipe and redirect support
 **Phase**: 5.6
@@ -57,22 +57,21 @@ find /usr -name "*.md" | grep man
 
 **Files**: `src/parser/executor.js`, `src/utils/command-context.js`
 
-#### Exit Codes
+### Exit Codes
 **Tags**: `#shell` `#production` `#critical` `#error-handling`
 **Status**: Complete infrastructure with $? support
 **Phase**: 6
 **Dependencies**: Parser refactoring
-**Blocks**: Conditional execution (&&, ||)
+**Blocks**: None
 
 **Features**:
 - Commands return exit codes (0 = success, non-zero = failure)
 - `$?` variable captures last exit code
 - `exit N` command to set exit code
-- Logical operators use exit codes (&&, ||)
 
 **Files**: `src/shell.js`, `src/parser/executor.js`, all command implementations
 
-#### Variables
+### Variables
 **Tags**: `#shell` `#production` `#high` `#scripting`
 **Status**: Assignment and expansion complete
 **Phase**: 6
@@ -91,27 +90,7 @@ find /usr -name "*.md" | grep man
 
 **Files**: `src/parser/executor.js`, `src/shell.js`
 
-#### Logical Operators
-**Tags**: `#shell` `#production` `#high` `#control-flow`
-**Status**: && and || implemented
-**Phase**: 6
-**Dependencies**: Exit codes
-**Blocks**: None
-
-**Features**:
-- **AND**: `cmd1 && cmd2` - Run cmd2 only if cmd1 succeeds
-- **OR**: `cmd1 || cmd2` - Run cmd2 only if cmd1 fails
-- Short-circuit evaluation
-
-**Examples**:
-```bash
-test -f file.txt && cat file.txt
-mkdir dir || echo "Failed to create directory"
-```
-
-**Files**: `src/parser/executor.js`
-
-#### Quote-Aware Parsing
+### Quote-Aware Parsing
 **Tags**: `#shell` `#production` `#high` `#parsing`
 **Status**: Complete string handling
 **Phase**: 5
@@ -126,7 +105,7 @@ mkdir dir || echo "Failed to create directory"
 
 **Files**: `src/parser/lexer.js`
 
-#### Interactive Input API
+### Interactive Input API
 **Tags**: `#shell` `#production` `#high` `#interactive`
 **Status**: Complete promise-based readLine API
 **Phase**: 6.5
@@ -149,7 +128,7 @@ mkdir dir || echo "Failed to create directory"
 
 ### 🔧 Working
 
-#### POSIX sh Scripting Features
+### POSIX sh Scripting Features
 **Tags**: `#shell` `#working` `#critical` `#scripting`
 **Status**: In progress (Phase 8)
 **Phase**: 8 (current focus)
@@ -178,7 +157,7 @@ mkdir dir || echo "Failed to create directory"
 
 **Files**: `src/parser/parser.js`, `src/parser/executor.js`, new test command
 
-#### Positional Parameters
+### Positional Parameters
 **Tags**: `#shell` `#working` `#high` `#scripting`
 **Status**: Deferred from Phase 6 to Phase 8
 **Phase**: 8
@@ -194,7 +173,29 @@ mkdir dir || echo "Failed to create directory"
 
 ### 🧪 Prototype
 
-#### Advanced Parser Features
+### Logical Operators
+**Tags**: `#shell` `#prototype` `#high` `#control-flow`
+**Status**: AST nodes defined but executor implementation incomplete
+**Phase**: 8 (needed for scripting)
+**Dependencies**: Exit codes (✅ complete)
+**Blocks**: Conditional execution patterns
+
+**Planned Features**:
+- **AND**: `cmd1 && cmd2` - Run cmd2 only if cmd1 succeeds
+- **OR**: `cmd1 || cmd2` - Run cmd2 only if cmd1 fails
+- Short-circuit evaluation
+
+**Examples**:
+```bash
+test -f file.txt && cat file.txt
+mkdir dir || echo "Failed to create directory"
+```
+
+**Current Status**: LogicalAnd and LogicalOr AST nodes exist in parser, but executor doesn't handle them. Will be implemented alongside conditionals in Phase 8.
+
+**Files**: `src/parser/ast-nodes.js` (nodes defined), `src/parser/executor.js` (needs implementation)
+
+### Advanced Parser Features
 **Tags**: `#shell` `#prototype` `#medium` `#parser`
 **Status**: Planned for Phase 10
 **Phase**: 10
@@ -209,7 +210,7 @@ mkdir dir || echo "Failed to create directory"
 - **Parameter expansion**: `${var:-default}`, `${var#pattern}`
 - **Tilde expansion**: `~/file` (partial support via cd ~)
 
-#### Export and Environment
+### Export and Environment
 **Tags**: `#shell` `#prototype` `#medium` `#environment`
 **Status**: Planned for Phase 8
 **Phase**: 8
@@ -223,7 +224,7 @@ mkdir dir || echo "Failed to create directory"
 - `CDPATH` - cd search path (low priority)
 - `IFS` - Field separator (low priority)
 
-#### Subshells and Grouping
+### Subshells and Grouping
 **Tags**: `#shell` `#prototype` `#low` `#advanced`
 **Status**: Planned for Phase 10+
 **Phase**: 10+
@@ -244,7 +245,7 @@ mkdir dir || echo "Failed to create directory"
 **Bourne Shell (1977)**: 🔧 In Progress
 - Variables ✅
 - Exit codes ✅
-- Logical operators ✅
+- Logical operators 🧪 (planned for Phase 8)
 - Conditionals 🔧 (working on it)
 - Loops 🔧
 - Functions 🔧

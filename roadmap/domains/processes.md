@@ -11,7 +11,7 @@ Process execution and scheduling system. Runs JavaScript scripts as processes us
 
 ### ✅ Production
 
-#### AsyncFunction-Based Execution
+### AsyncFunction-Based Execution
 **Tags**: `#processes` `#production` `#high` `#execution`
 **Status**: Stable, production-ready
 **Phase**: 5
@@ -34,7 +34,7 @@ await fn(args, env, capturedConsole, fs, http, notify, path, argparse);
 
 **Files**: `src/kernel/olivine.js` (Process class, ~100 lines)
 
-#### Process Manager
+### Process Manager
 **Tags**: `#processes` `#production` `#high` `#management`
 **Status**: Complete process lifecycle management
 **Phase**: 5
@@ -51,7 +51,7 @@ await fn(args, env, capturedConsole, fs, http, notify, path, argparse);
 
 **Files**: `src/kernel/olivine.js` (ProcessManager class, ~150 lines)
 
-#### Stdout/Stderr Streaming
+### Stdout/Stderr Streaming
 **Tags**: `#processes` `#production` `#high` `#output`
 **Status**: Real-time output streaming to terminal
 **Phase**: 5
@@ -76,7 +76,7 @@ const capturedConsole = {
 
 **Files**: `src/kernel/olivine.js` (Process class)
 
-#### Cron Scheduler
+### Cron Scheduler
 **Tags**: `#processes` `#production` `#high` `#scheduling`
 **Status**: Complete with full cron expression parsing
 **Phase**: 5
@@ -112,7 +112,7 @@ cron "0 0 * * 0" backup.js       # Weekly on Sunday midnight
 
 **Files**: `src/kernel/olivine.js` (Scheduler class, ~200 lines)
 
-#### Process Commands
+### Process Commands
 **Tags**: `#processes` `#production` `#high` `#commands`
 **Status**: Complete command suite
 **Phase**: 5
@@ -135,7 +135,7 @@ cron "0 0 * * 0" backup.js       # Weekly on Sunday midnight
 
 **Files**: `src/commands/shell.js` (process commands)
 
-#### Exit Code Infrastructure
+### Exit Code Infrastructure
 **Tags**: `#processes` `#production` `#critical` `#error-handling`
 **Status**: Complete exit code tracking
 **Phase**: 5, 6 (enhanced)
@@ -157,7 +157,7 @@ None - process execution is feature-complete!
 
 ### 🧪 Prototype
 
-#### Background Daemon Processes
+### Background Daemon Processes
 **Tags**: `#processes` `#prototype` `#low` `#daemons`
 **Status**: Not needed yet
 **Phase**: Future (Phase 12+)
@@ -170,7 +170,7 @@ None - process execution is feature-complete!
 - Daemon listing (separate from regular processes)
 - Auto-start on boot
 
-#### Process Metadata in /proc
+### Process Metadata in /proc
 **Tags**: `#processes` `#prototype` `#low` `#filesystem`
 **Status**: Not needed yet
 **Phase**: Future (Phase 12+)
@@ -184,7 +184,7 @@ None - process execution is feature-complete!
 - `/proc/<pid>/stdout` - Real-time stdout
 - `/proc/<pid>/stderr` - Real-time stderr
 
-#### Interactive Crontab Editor
+### Interactive Crontab Editor
 **Tags**: `#processes` `#prototype` `#low` `#ux`
 **Status**: Not needed yet
 **Phase**: Future (Phase 12+)

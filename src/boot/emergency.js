@@ -170,7 +170,7 @@ export class EmergencyMode {
 
       // Show file info
       const status = document.getElementById('inject-status');
-      status.innerHTML = `<div class="status-info">Selected: ${file.name} (${formatBytes(file.size)})</div>`;
+      status.innerHTML = `<div class="status-info">Selected: ${this.escapeHTML(file.name)} (${formatBytes(file.size)})</div>`;
     }
   }
 

@@ -18,6 +18,9 @@ describe('kmt command', () => {
     const { kernelClient } = await import('../../../src/kernel/client.js');
     kernelClient.setTestKernel(vfs);
 
+    // Warmup kernel proxy to avoid race condition in first test
+    await vfs.stat('/home');
+
     const mockShell = await createMockShell();
     shell = mockShell.shell;
     term = mockShell.term;
@@ -49,7 +52,7 @@ describe('kmt command', () => {
       expect(output).to.include('Creating archive from /home/testdir');
       expect(output).to.include('Archive created: test.kmt');
       expect(output).to.include('Files: 3');
-      expect(output).to.include('Directories: 1');
+      expect(output).to.include('Directories: 2'); // Includes root dir + subdir
 
       // Verify archive file exists
       const archiveExists = await vfs.exists('/home/test.kmt');
@@ -94,8 +97,8 @@ describe('kmt command', () => {
 
   describe('kmt list', () => {
     beforeEach(async () => {
-      // Create archive for testing
-      await shell.execute('kmt pack /home/testdir test.kmt');
+      // Create archive for testing (with absolute paths for these tests)
+      await shell.execute('kmt pack /home/testdir test.kmt --absolute');
       term.clear();
     });
 
@@ -106,7 +109,7 @@ describe('kmt command', () => {
       expect(output).to.include('Archive:');
       expect(output).to.include('testdir');
       expect(output).to.include('Files: 3');
-      expect(output).to.include('Directories: 1');
+      expect(output).to.include('Directories: 2'); // Includes root dir + subdir
       expect(output).to.include('/home/testdir/file1.txt');
       expect(output).to.include('/home/testdir/file2.txt');
       expect(output).to.include('/home/testdir/subdir/file3.txt');
@@ -131,8 +134,8 @@ describe('kmt command', () => {
 
   describe('kmt info', () => {
     beforeEach(async () => {
-      // Create archive for testing
-      await shell.execute('kmt pack /home/testdir test.kmt --label "Test Archive"');
+      // Create archive for testing (with absolute paths)
+      await shell.execute('kmt pack /home/testdir test.kmt --label "Test Archive" --absolute');
       term.clear();
     });
 
@@ -145,7 +148,7 @@ describe('kmt command', () => {
       expect(output).to.include('Version:     1.0');
       expect(output).to.include('Label:       Test Archive');
       expect(output).to.include('Files:       3');
-      expect(output).to.include('Directories: 1');
+      expect(output).to.include('Directories: 2'); // Includes root dir + subdir
       expect(output).to.include('Checksums:');
       expect(output).to.include('sha256:');
     });
@@ -153,8 +156,8 @@ describe('kmt command', () => {
 
   describe('kmt unpack', () => {
     beforeEach(async () => {
-      // Create archive for testing
-      await shell.execute('kmt pack /home/testdir test.kmt');
+      // Create archive for testing (with absolute paths for these tests)
+      await shell.execute('kmt pack /home/testdir test.kmt --absolute');
       term.clear();
 
       // Remove original directory
@@ -167,8 +170,8 @@ describe('kmt command', () => {
       const output = term.getOutput();
       expect(output).to.include('Reading archive test.kmt');
       expect(output).to.include('Verifying checksums');
-      expect(output).to.include('Extracting to /');
-      expect(output).to.include('Extracted 3 files, 1 directories');
+      expect(output).to.include('Extracting absolute paths to /');
+      expect(output).to.include('Extracted 3 files, 2 directories'); // Includes root dir + subdir
 
       // Verify files were extracted to their original paths
       const file1 = await vfs.readFile('/home/testdir/file1.txt');
@@ -301,11 +304,11 @@ describe('kmt command', () => {
 
       const entries = JSON.parse(entriesJSON);
 
-      // Check that paths are relative
+      // Check that paths are relative (to the packed directory)
       expect(entries[0].path).to.not.include('/home');
-      expect(entries.some(e => e.path === 'project')).to.be.true;
-      expect(entries.some(e => e.path === 'project/file1.txt')).to.be.true;
-      expect(entries.some(e => e.path === 'project/subdir/file2.txt')).to.be.true;
+      expect(entries.some(e => e.path === '.')).to.be.true; // Root of archive
+      expect(entries.some(e => e.path === 'file1.txt')).to.be.true;
+      expect(entries.some(e => e.path === 'subdir/file2.txt')).to.be.true;
     });
 
     it('should create archive with absolute paths when --absolute flag used', async () => {
@@ -358,11 +361,11 @@ describe('kmt command', () => {
       const output = term.getOutput();
       expect(output).to.include('Extracting relative paths to /tmp');
 
-      // Verify files were extracted to /tmp/project/
-      const file1 = await vfs.readFile('/tmp/project/file1.txt');
+      // Verify files were extracted relative to /tmp
+      const file1 = await vfs.readFile('/tmp/file1.txt');
       expect(file1).to.equal('Content 1');
 
-      const file2 = await vfs.readFile('/tmp/project/subdir/file2.txt');
+      const file2 = await vfs.readFile('/tmp/subdir/file2.txt');
       expect(file2).to.equal('Content 2');
     });
 
@@ -396,7 +399,7 @@ describe('kmt command', () => {
       // List should indicate relative paths
       await shell.execute('kmt list relative.kmt');
       let output = term.getOutput();
-      expect(output).to.match(/project\/file1\.txt/);
+      expect(output).to.match(/file1\.txt/); // Relative paths don't include parent dir
 
       term.clear();
 

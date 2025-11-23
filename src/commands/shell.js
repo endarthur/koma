@@ -1619,6 +1619,16 @@ export function registerShellCommands(shell, tabManager = null) {
           // Get entries from source path
           let entries = await getAllVFSEntries(kernel, sourcePath, []);
 
+          // Add the source directory itself as root entry (at beginning for proper order)
+          // Use current timestamp since we don't need precise timing for pack operation
+          const sourceEntry = {
+            path: sourcePath,
+            type: 'directory',
+            created: Date.now(),
+            modified: Date.now()
+          };
+          entries = [sourceEntry, ...entries];
+
           // Convert to relative paths by default (unless --absolute flag)
           if (!flags.absolute) {
             // Make paths relative to source path
@@ -2031,6 +2041,12 @@ export function registerShellCommands(shell, tabManager = null) {
     if (argparse.showHelp('schist', args, schema, shell.term)) return;
 
     const parsed = argparse.parse(args, schema);
+
+    // DEBUG: Log args for testing
+    if (globalThis.__TEST_MODE__) {
+      console.log('[SCHIST DEBUG] args:', JSON.stringify(args));
+      console.log('[SCHIST DEBUG] parsed:', JSON.stringify(parsed));
+    }
 
     try {
       // -e flag: evaluate expression (check this FIRST, before -i)

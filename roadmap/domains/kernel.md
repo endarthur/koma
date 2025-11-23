@@ -11,7 +11,7 @@ Olivine - the web worker kernel that provides OS-layer functionality. Replaces t
 
 ### ✅ Production
 
-#### Olivine Web Worker Kernel
+### Olivine Web Worker Kernel
 **Tags**: `#kernel` `#production` `#critical` `#core-system`
 **Status**: Stable, production-ready architecture
 **Phase**: 3-4 (Service Worker → Olivine migration)
@@ -32,7 +32,7 @@ Olivine - the web worker kernel that provides OS-layer functionality. Replaces t
 
 **Files**: `src/kernel/olivine.js` (~800 lines)
 
-#### Comlink RPC Bridge
+### Comlink RPC Bridge
 **Tags**: `#kernel` `#production` `#high` `#rpc`
 **Status**: Stable bidirectional communication
 **Phase**: 3
@@ -48,7 +48,7 @@ Olivine - the web worker kernel that provides OS-layer functionality. Replaces t
 
 **Files**: `src/kernel/client.js` (~200 lines)
 
-#### Kernel API
+### Kernel API
 **Tags**: `#kernel` `#production` `#critical` `#api`
 **Status**: Complete API surface for shell operations
 **Phase**: 3-6
@@ -64,7 +64,7 @@ Olivine - the web worker kernel that provides OS-layer functionality. Replaces t
 
 **Files**: `src/kernel/olivine.js` (exports via Comlink)
 
-#### Standard Library Initialization
+### Standard Library Initialization
 **Tags**: `#kernel` `#production` `#high` `#stdlib`
 **Status**: Dynamic module loading for scripts
 **Phase**: 5
@@ -85,7 +85,7 @@ None - kernel is feature-complete and stable!
 
 ### 🧪 Prototype
 
-#### Kernel Modules System
+### Kernel Modules System
 **Tags**: `#kernel` `#prototype` `#medium` `#extensibility`
 **Status**: Planned for Phase 7+
 **Phase**: Future

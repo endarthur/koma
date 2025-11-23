@@ -15,6 +15,7 @@ import { BootDiagnostics } from './diagnostics.js';
 import { kernelClient } from '../kernel/client.js';
 import { Editor } from '../ui/editor.js';
 import { Shale } from '../ui/shale.js';
+import { statusIndicators } from '../ui/status-indicators.js';
 
 export class BootManager {
   constructor() {
@@ -328,6 +329,9 @@ export class BootManager {
 
       this.updateStatus('Creating tab manager...');
       const shale = new Shale(terminalConfig, editor);
+
+      this.updateStatus('Initializing status indicators...');
+      statusIndicators.init();
 
       const duration = performance.now() - startTime;
       this.diagnostics.recordStage('ui', duration, 'success');

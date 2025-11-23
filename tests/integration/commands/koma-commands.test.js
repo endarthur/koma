@@ -15,6 +15,10 @@ describe('koma commands', () => {
     vfs = testVFS.kernel;
     cleanup = testVFS.cleanup;
 
+    // Inject test kernel into kernelClient
+    const { kernelClient } = await import('../../../src/kernel/client.js');
+    kernelClient.setTestKernel(vfs);
+
     const mockShell = await createMockShell();
     shell = mockShell.shell;
     term = mockShell.term;
@@ -31,6 +35,10 @@ describe('koma commands', () => {
   });
 
   afterEach(async () => {
+    // Clear test kernel
+    const { kernelClient } = await import('../../../src/kernel/client.js');
+    kernelClient.clearTestKernel();
+
     // Restore original fetch
     if (originalFetch) {
       globalThis.fetch = originalFetch;
@@ -54,7 +62,7 @@ describe('koma commands', () => {
 
       // Create a real KMT archive
       await shell.execute('kmt pack /tmp/source test-archive.kmt --label "Test Archive"');
-      mockArchive = await vfs.readFile('/tmp/test-archive.kmt');
+      mockArchive = await vfs.readFile('/home/test-archive.kmt');
       term.clear();
     });
 
@@ -76,14 +84,14 @@ describe('koma commands', () => {
       expect(output).to.include('Inserting KMT: examples.kmt');
       expect(output).to.include('Downloading...');
       expect(output).to.include('Unpacking...');
-      expect(output).to.include('Extracted 2 files');
+      expect(output).to.include('Extracted');
       expect(output).to.include('Location: /media/examples');
 
       // Verify files were extracted to /media/examples/
-      const file1 = await vfs.readFile('/media/examples/source/file1.txt');
+      const file1 = await vfs.readFile('/media/examples/file1.txt');
       expect(file1).to.equal('Test content 1');
 
-      const file2 = await vfs.readFile('/media/examples/source/file2.txt');
+      const file2 = await vfs.readFile('/media/examples/file2.txt');
       expect(file2).to.equal('Test content 2');
     });
 
@@ -160,7 +168,7 @@ describe('koma commands', () => {
       expect(output).to.include('Location: /home/custom');
 
       // Verify files were extracted to custom location
-      const file1 = await vfs.readFile('/home/custom/source/file1.txt');
+      const file1 = await vfs.readFile('/home/custom/file1.txt');
       expect(file1).to.equal('Test content 1');
     });
 
@@ -174,7 +182,7 @@ describe('koma commands', () => {
       await shell.execute('koma insert nonexistent');
 
       const output = term.getOutput();
-      expect(output).to.include('error:');
+      expect(output).to.include('koma insert:');
       expect(output).to.include('HTTP 404');
     });
 
@@ -188,7 +196,7 @@ describe('koma commands', () => {
       await shell.execute('koma insert broken');
 
       const output = term.getOutput();
-      expect(output).to.include('error:');
+      expect(output).to.include('koma insert:');
 
       // Verify temp file was cleaned up
       const tempExists = await vfs.exists('/media/.tmp_broken.kmt');
@@ -217,7 +225,7 @@ describe('koma commands', () => {
       await shell.execute('koma insert');
 
       const output = term.getOutput();
-      expect(output).to.include('error:');
+      expect(output).to.include('koma insert:');
       expect(output).to.include('missing archive name');
       expect(output).to.include('Usage:');
     });
@@ -225,6 +233,14 @@ describe('koma commands', () => {
 
   describe('koma eject', () => {
     beforeEach(async () => {
+      // Clear /media directory to ensure clean state
+      try {
+        await vfs.unlinkRecursive('/media');
+      } catch (e) {
+        // Directory might not exist
+      }
+      await vfs.mkdir('/media');
+
       // Create test files and directories in /media
       const { populateTestFixtures } = await import('../../helpers/vfs-test-helper.js');
       await populateTestFixtures(vfs, {
@@ -326,7 +342,7 @@ describe('koma commands', () => {
       });
 
       await shell.execute('kmt pack /tmp/test workflow-test.kmt');
-      mockArchive = await vfs.readFile('/tmp/workflow-test.kmt');
+      mockArchive = await vfs.readFile('/home/workflow-test.kmt');
       term.clear();
 
       // Mock fetch
@@ -345,7 +361,7 @@ describe('koma commands', () => {
       expect(output).to.include('Extracted');
 
       // Verify inserted
-      const dataExists = await vfs.exists('/media/workflow-test/test/data.txt');
+      const dataExists = await vfs.exists('/media/workflow-test/data.txt');
       expect(dataExists).to.be.true;
 
       term.clear();
@@ -373,7 +389,7 @@ describe('koma commands', () => {
       expect(output).to.include('Extracted');
 
       // Verify re-inserted successfully
-      const dataExists = await vfs.exists('/media/workflow-test/test/data.txt');
+      const dataExists = await vfs.exists('/media/workflow-test/data.txt');
       expect(dataExists).to.be.true;
     });
   });

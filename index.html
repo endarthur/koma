@@ -30,8 +30,50 @@
 </head>
 <body>
   <div id="koma-workstation">
+    <!-- Boot Splash -->
+    <div id="boot-splash">
+      <div class="splash-content">
+        <div class="splash-logo">◉</div>
+        <div class="splash-brand">
+          <div class="splash-brand-name">CRATON SYSTEMS</div>
+          <div class="splash-brand-subtitle">Koma Terminal OS v0.5.0</div>
+        </div>
+      </div>
+    </div>
+
     <!-- Terminal View -->
     <div id="terminal-view">
+      <!-- Acrylic Overlay Header -->
+      <div class="acrylic-header">
+        <div class="brand">
+          <div class="brand-text">
+            <div class="brand-name">CRATON</div>
+            <div class="brand-subtitle">SYSTEMS</div>
+          </div>
+        </div>
+
+        <div class="serial-number">S/N: <span id="device-serial">KOMA-DEMO-0000-0000</span></div>
+
+        <div class="status-indicators">
+          <div class="indicator" data-status="sys" title="System">
+            <div class="indicator-light"></div>
+            <div class="indicator-label">S</div>
+          </div>
+          <div class="indicator" data-status="disk" title="Storage">
+            <div class="indicator-light"></div>
+            <div class="indicator-label">D</div>
+          </div>
+          <div class="indicator" data-status="net" title="Network">
+            <div class="indicator-light"></div>
+            <div class="indicator-label">N</div>
+          </div>
+          <div class="indicator" data-status="user" title="User">
+            <div class="indicator-light"></div>
+            <div class="indicator-label">U</div>
+          </div>
+        </div>
+      </div>
+
       <div class="tab-bar">
         <div class="tabs">
           <div class="tab active" data-id="1">
@@ -41,7 +83,7 @@
         </div>
         <div class="activity-led"></div>
         <span class="editor-status"></span>
-        <div class="system-info">koma v0.1</div>
+        <div class="system-info">koma v0.5.0</div>
       </div>
 
       <div class="terminal-container">

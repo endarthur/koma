@@ -143,8 +143,8 @@ docs/
 - `src/kernel/olivine.js` - Kernel (VFS, Process, Scheduler)
 - `src/shell.js` - Shell class
 - `src/parser/` - Lexer, Parser, Executor, AST nodes
-- `src/commands/` - 48 built-in commands
-- `src/stdlib/` - 6 standard library modules
+- `src/commands/` - 47 built-in commands
+- `src/stdlib/` - 5 standard library modules
 - `src/ui/` - Tab manager, editor, activity LED
 - `src/boot/` - 6 boot system modules
 - `src/utils/` - Shared utilities

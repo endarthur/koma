@@ -65,10 +65,10 @@ This multi-dimensional roadmap organizes features by **three dimensions**:
 **✅ Production** (Feature-complete, stable):
 - [kernel](domains/kernel.md) - Olivine web worker, never randomly dies
 - [vfs](domains/vfs.md) - IndexedDB-backed filesystem
-- [commands](domains/commands.md) - 48 commands with argparse
+- [commands](domains/commands.md) - 47 commands with argparse
 - [editor](domains/editor.md) - CodeMirror with vein command
 - [processes](domains/processes.md) - AsyncFunction execution, cron scheduler
-- [stdlib](domains/stdlib.md) - 6 modules (fs, http, notify, path, argparse)
+- [stdlib](domains/stdlib.md) - 5 modules (fs, http, notify, path, argparse)
 
 **🔧 Working** (Functional but evolving):
 - [shell](domains/shell.md) - AST parser complete, POSIX features in progress

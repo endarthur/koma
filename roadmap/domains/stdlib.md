@@ -11,7 +11,7 @@ Standard library modules available to scripts and commands. Dynamically imported
 
 ### ✅ Production
 
-#### fs - Filesystem Module
+### fs - Filesystem Module
 **Tags**: `#stdlib` `#production` `#critical` `#filesystem`
 **Status**: Complete VFS wrapper with helpers
 **Phase**: 5
@@ -47,7 +47,7 @@ if (await fs.exists('/home/config.json')) {
 
 **Files**: `src/stdlib/fs.js` (~100 lines)
 
-#### http - HTTP Module
+### http - HTTP Module
 **Tags**: `#stdlib` `#production` `#high` `#network`
 **Status**: Complete fetch wrappers
 **Phase**: 5
@@ -78,7 +78,7 @@ const html = await http.text('https://example.com');
 
 **Files**: `src/stdlib/http.js` (~80 lines)
 
-#### path - Path Utilities
+### path - Path Utilities
 **Tags**: `#stdlib` `#production` `#high` `#utilities`
 **Status**: Complete POSIX path utilities
 **Phase**: 5 Maintenance
@@ -115,7 +115,7 @@ const normalized = path.normalize('/home/user/../file.txt');
 
 **Files**: `src/stdlib/path.js` (~250 lines)
 
-#### argparse - Argument Parsing
+### argparse - Argument Parsing
 **Tags**: `#stdlib` `#production` `#high` `#cli`
 **Status**: Complete with schema-based parsing and help generation
 **Phase**: 5 Maintenance
@@ -162,7 +162,7 @@ const parsed = argparse.parse(args, schema);
 
 **Files**: `src/stdlib/args.js` (~300 lines)
 
-#### notify - Notifications Module
+### notify - Notifications Module
 **Tags**: `#stdlib` `#production` `#medium` `#ui`
 **Status**: API ready, disabled in worker context
 **Phase**: 5
@@ -186,7 +186,7 @@ await notify.send('Task Complete', {
 
 **Files**: `src/stdlib/notify.js` (~50 lines)
 
-#### Dynamic Import System
+### Dynamic Import System
 **Tags**: `#stdlib` `#production` `#high` `#architecture`
 **Status**: Modular stdlib loading
 **Phase**: 5
@@ -219,7 +219,7 @@ None - stdlib is feature-complete for current needs!
 
 ### 🧪 Prototype
 
-#### crypto - Cryptography Module
+### crypto - Cryptography Module
 **Tags**: `#stdlib` `#prototype` `#medium` `#security`
 **Status**: Planned for Phase 10
 **Phase**: 10 (Security features)
@@ -233,7 +233,7 @@ None - stdlib is feature-complete for current needs!
 - `generateKey()` - Generate encryption key
 - `randomBytes(length)` - Secure random bytes
 
-#### dom - DOM Manipulation Module
+### dom - DOM Manipulation Module
 **Tags**: `#stdlib` `#prototype` `#low` `#ui`
 **Status**: Deferred until needed
 **Phase**: Future
@@ -242,7 +242,7 @@ None - stdlib is feature-complete for current needs!
 
 **Note**: Currently scripts run in Worker context, no DOM access. Would need bridge to UI thread.
 
-#### sql - SQLite Module
+### sql - SQLite Module
 **Tags**: `#stdlib` `#prototype` `#low` `#database`
 **Status**: Deferred until needed
 **Phase**: Future (Phase 12+)

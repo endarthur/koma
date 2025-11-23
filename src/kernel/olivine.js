@@ -517,6 +517,20 @@ class VFS {
     });
   }
 
+  async exists(path) {
+    await this.ready;
+
+    try {
+      await this.stat(path);
+      return true;
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        return false;
+      }
+      throw error;
+    }
+  }
+
   async rename(oldPath, newPath) {
     await this.ready;
 
@@ -708,36 +722,48 @@ class VFS {
       const transaction = this.db.transaction([STORE_NAME], 'readwrite');
       const store = transaction.objectStore(STORE_NAME);
 
-      // First, clear all existing data
-      const clearRequest = store.clear();
-
-      clearRequest.onsuccess = () => {
-        // Import all entries
-        let completed = 0;
-        const total = sortedEntries.length;
-
-        if (total === 0) {
-          resolve();
-          return;
-        }
-
-        for (const entry of sortedEntries) {
-          const putRequest = store.put(entry);
-
-          putRequest.onsuccess = () => {
-            completed++;
-            if (completed === total) {
-              resolve();
-            }
-          };
-
-          putRequest.onerror = () => {
-            reject(new Error(`Failed to import entry: ${entry.path}`));
-          };
-        }
+      // Set up transaction-level handlers for atomic commit/rollback
+      transaction.oncomplete = () => {
+        resolve();
       };
 
-      clearRequest.onerror = () => reject(new Error('Failed to clear VFS'));
+      transaction.onerror = () => {
+        // Transaction will auto-rollback on error, preserving VFS
+        reject(new Error(`VFS import failed: ${transaction.error?.message || 'unknown error'}`));
+      };
+
+      transaction.onabort = () => {
+        reject(new Error('VFS import aborted - no changes made'));
+      };
+
+      try {
+        // First, clear all existing data
+        const clearRequest = store.clear();
+
+        clearRequest.onerror = () => {
+          transaction.abort();
+        };
+
+        clearRequest.onsuccess = () => {
+          // Import all entries
+          if (sortedEntries.length === 0) {
+            // Empty backup is valid, transaction will complete
+            return;
+          }
+
+          for (const entry of sortedEntries) {
+            const putRequest = store.put(entry);
+
+            putRequest.onerror = () => {
+              // Abort transaction to rollback all changes
+              transaction.abort();
+            };
+          }
+        };
+      } catch (error) {
+        transaction.abort();
+        reject(new Error(`VFS import setup failed: ${error.message}`));
+      }
     });
   }
 }
@@ -903,6 +929,9 @@ class Process {
  * ProcessManager - Manages script execution
  */
 class ProcessManager {
+  static MAX_PROCESSES = 100; // Prevent unbounded process accumulation
+  static MAX_RUNTIME_MS = 60 * 60 * 1000; // 1 hour max runtime for any process
+
   constructor(vfs) {
     this.processes = new Map();
     this.nextPid = 1;
@@ -923,6 +952,14 @@ class ProcessManager {
   async spawn(scriptPath, args = [], env = {}) {
     if (!this.stdlibModules) {
       throw new Error('Standard library not initialized');
+    }
+
+    // Clean up stuck processes periodically
+    this.cleanupStuckProcesses();
+
+    // Prevent unbounded process accumulation
+    if (this.processes.size >= ProcessManager.MAX_PROCESSES) {
+      throw new Error(`Maximum process count (${ProcessManager.MAX_PROCESSES}) reached. Kill or wait for existing processes to complete.`);
     }
 
     const pid = this.nextPid++;
@@ -992,6 +1029,28 @@ class ProcessManager {
    */
   getProcess(pid) {
     return this.processes.get(pid);
+  }
+
+  /**
+   * Clean up stuck processes (running longer than MAX_RUNTIME_MS)
+   * Called periodically to prevent memory leaks from never-completing processes
+   */
+  cleanupStuckProcesses() {
+    const now = Date.now();
+    let killedCount = 0;
+
+    for (const [pid, process] of this.processes.entries()) {
+      if (process.status === 'running') {
+        const runtime = now - process.startTime;
+        if (runtime > ProcessManager.MAX_RUNTIME_MS) {
+          console.warn(`[ProcessManager] Force-killing stuck process ${pid} (runtime: ${Math.round(runtime / 60000)}m)`);
+          process.kill();
+          killedCount++;
+        }
+      }
+    }
+
+    return killedCount;
   }
 }
 
@@ -1328,6 +1387,7 @@ class KomaKernel {
   async mkdir(path) { return this.vfs.mkdir(path); }
   async unlink(path) { return this.vfs.unlink(path); }
   async stat(path) { return this.vfs.stat(path); }
+  async exists(path) { return this.vfs.exists(path); }
   async rename(oldPath, newPath) { return this.vfs.rename(oldPath, newPath); }
   async copyFile(srcPath, destPath) { return this.vfs.copyFile(srcPath, destPath); }
   async move(srcPath, destPath) { return this.vfs.move(srcPath, destPath); }

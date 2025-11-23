@@ -27,7 +27,21 @@
       "Bash(wait)",
       "Bash(python generate-fixtures.py:*)",
       "Bash(npm run test:unit:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(python:*)",
+      "WebFetch(domain:archive.org)",
+      "WebFetch(domain:www.planetemu.net)",
+      "WebFetch(domain:www.gkc.org.uk)",
+      "WebFetch(domain:www.dabeaz.com)",
+      "Bash(/bashes)",
+      "Bash(git add:*)",
+      "Bash(npx wtr --files \"tests/integration/commands/koma-commands.test.js\" --grep \"should download and unpack\")",
+      "Bash(nul)",
+      "Bash(cloc:*)",
+      "Bash(git commit:*)",
+      "Bash(git push)",
+      "Bash(git tag:*)",
+      "Bash(git push:*)"
     ],
     "deny": [],
     "ask": []

@@ -11,7 +11,7 @@ Comprehensive backup and restore system using .magma archives. Provides full VFS
 
 ### ✅ Polished
 
-#### .magma Archive Format
+### .magma Archive Format
 **Tags**: `#backup` `#polished` `#high` `#archive`
 **Status**: Production-ready, well-documented
 **Phase**: 5.7
@@ -51,7 +51,7 @@ content: [base64 encoded content]
 
 **Files**: `src/commands/filesystem.js` (backup/restore implementation)
 
-#### backup Command
+### backup Command
 **Tags**: `#backup` `#polished` `#high` `#command`
 **Status**: Complete VFS backup functionality
 **Phase**: 5.7
@@ -73,7 +73,7 @@ backup --help                  # Show help
 
 **Files**: `src/commands/filesystem.js`, `docs/man/filesystem/backup.1.md`
 
-#### restore Command
+### restore Command
 **Tags**: `#backup` `#polished` `#high` `#command`
 **Status**: Complete VFS restore functionality
 **Phase**: 5.7
@@ -98,7 +98,7 @@ restore --help                 # Show help
 
 **Files**: `src/commands/filesystem.js`, `docs/man/filesystem/restore.1.md`
 
-#### Daily Automatic Snapshots
+### Daily Automatic Snapshots
 **Tags**: `#backup` `#polished` `#high` `#automation`
 **Status**: Complete background snapshot system
 **Phase**: 6.6 (Boot System)
@@ -125,7 +125,7 @@ restore --help                 # Show help
 
 **Files**: `src/boot/health-monitor.js` (snapshot scheduling)
 
-#### Emergency Recovery
+### Emergency Recovery
 **Tags**: `#backup` `#polished` `#critical` `#recovery`
 **Status**: Complete VFS corruption recovery
 **Phase**: 6.6 (Boot System)
@@ -150,7 +150,7 @@ restore --help                 # Show help
 
 ### ✅ Production
 
-#### Session State Backups
+### Session State Backups
 **Tags**: `#backup` `#production` `#high` `#sessions`
 **Status**: Complete lightweight session backup
 **Phase**: 6.6 (Boot System)
@@ -177,7 +177,7 @@ None - backup system is feature-complete!
 
 ### 🧪 Prototype
 
-#### Incremental Backups
+### Incremental Backups
 **Tags**: `#backup` `#prototype` `#medium` `#optimization`
 **Status**: Planned for future
 **Phase**: Future (Phase 12+)
@@ -190,7 +190,7 @@ None - backup system is feature-complete!
 - Differential backup format
 - Restore from base + incrementals
 
-#### Cloud Backup Integration
+### Cloud Backup Integration
 **Tags**: `#backup` `#prototype` `#low` `#cloud`
 **Status**: Deferred
 **Phase**: Future (Phase 12+)
@@ -204,7 +204,7 @@ None - backup system is feature-complete!
 
 **Challenge**: Requires OAuth and cloud API integration
 
-#### Selective Backup/Restore
+### Selective Backup/Restore
 **Tags**: `#backup` `#prototype` `#low` `#ux`
 **Status**: Deferred
 **Phase**: Future (Phase 12+)

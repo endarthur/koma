@@ -82,9 +82,9 @@
 - Phase 8-12: 📋 Planned
 
 **Feature Count**:
-- 48 shell commands implemented
-- 6 stdlib modules available
-- 48 man pages documented
+- 47 shell commands implemented
+- 5 stdlib modules available
+- 47 man pages documented
 - 5-stage boot system
 - Full pipes & redirection support
 
@@ -109,7 +109,7 @@
 - ✅ Exit code infrastructure ($? support)
 - ✅ Variable assignment and expansion
 - ✅ Schist Lisp interpreter
-- ✅ Logical operators (&&, ||)
+- 🧪 Logical operators (&&, ||) - AST nodes defined, executor pending
 
 **Phase 5.7 (Backup & Restore - November 2025)**:
 - ✅ .magma archive format
@@ -182,7 +182,7 @@
 - [Kernel](domains/kernel.md) - Olivine worker, kernel API, RPC
 - [VFS](domains/vfs.md) - Virtual filesystem, IndexedDB
 - [Shell](domains/shell.md) - Parser, pipes, redirection, scripting
-- [Commands](domains/commands.md) - Built-in commands (48 total)
+- [Commands](domains/commands.md) - Built-in commands (47 total)
 
 **High Priority**:
 - [Editor](domains/editor.md) - CodeMirror integration (vein)

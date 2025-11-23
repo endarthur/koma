@@ -11,7 +11,7 @@ Terminal interface using xterm.js with multi-tab support, status bar, and indust
 
 ### ✅ Production
 
-#### xterm.js Terminal Emulation
+### xterm.js Terminal Emulation
 **Tags**: `#ui` `#production` `#critical` `#terminal`
 **Status**: Stable, production-ready
 **Phase**: 1, 2
@@ -34,7 +34,7 @@ Terminal interface using xterm.js with multi-tab support, status bar, and indust
 
 **Files**: `src/terminal.js`, `index.html` (xterm.js import)
 
-#### Multi-Tab Shell Sessions
+### Multi-Tab Shell Sessions
 **Tags**: `#ui` `#production` `#critical` `#tabs`
 **Status**: Complete with persistence
 **Phase**: 2
@@ -56,7 +56,7 @@ Terminal interface using xterm.js with multi-tab support, status bar, and indust
 
 **Files**: `src/ui/tab-manager.js` (~600 lines)
 
-#### Status Bar
+### Status Bar
 **Tags**: `#ui` `#production` `#high` `#status`
 **Status**: Complete with cwd display
 **Phase**: 2
@@ -76,7 +76,7 @@ Terminal interface using xterm.js with multi-tab support, status bar, and indust
 
 **Files**: `src/terminal.js`, `src/ui/tab-manager.js`, `styles/koma.css`
 
-#### Activity LED
+### Activity LED
 **Tags**: `#ui` `#production` `#high` `#feedback`
 **Status**: Complete visual feedback system
 **Phase**: 4
@@ -97,7 +97,7 @@ Terminal interface using xterm.js with multi-tab support, status bar, and indust
 
 **Files**: `src/ui/activity-led.js` (~150 lines), `styles/koma.css`
 
-#### Terminal Copy/Paste
+### Terminal Copy/Paste
 **Tags**: `#ui` `#production` `#high` `#ux`
 **Status**: Complete with right-click context
 **Phase**: 4
@@ -112,7 +112,7 @@ Terminal interface using xterm.js with multi-tab support, status bar, and indust
 
 **Files**: `src/ui/tab-manager.js` (context menu handler)
 
-#### Tab Completion
+### Tab Completion
 **Tags**: `#ui` `#production` `#high` `#ux`
 **Status**: Complete with nested path support
 **Phase**: 4
@@ -129,7 +129,7 @@ Terminal interface using xterm.js with multi-tab support, status bar, and indust
 
 **Files**: `src/ui/tab-manager.js` (tab completion logic)
 
-#### Command History
+### Command History
 **Tags**: `#ui` `#production` `#high` `#ux`
 **Status**: Complete with up/down arrow navigation
 **Phase**: 2
@@ -145,7 +145,7 @@ Terminal interface using xterm.js with multi-tab support, status bar, and indust
 
 **Files**: `src/ui/tab-manager.js`, `src/shell.js`
 
-#### Keyboard Shortcuts
+### Keyboard Shortcuts
 **Tags**: `#ui` `#production` `#high` `#ux`
 **Status**: Complete essential shortcuts
 **Phase**: 2, 4, 6
@@ -168,7 +168,7 @@ Terminal interface using xterm.js with multi-tab support, status bar, and indust
 
 ### 🔧 Working
 
-#### Theme System
+### Theme System
 **Tags**: `#ui` `#working` `#medium` `#customization`
 **Status**: Partial implementation
 **Phase**: 1, ongoing
@@ -189,7 +189,7 @@ Terminal interface using xterm.js with multi-tab support, status bar, and indust
 
 **Files**: `styles/koma.css` (CSS custom properties)
 
-#### Terminal Customization
+### Terminal Customization
 **Tags**: `#ui` `#working` `#medium` `#ux`
 **Status**: Limited customization options
 **Phase**: Future
@@ -205,7 +205,7 @@ Terminal interface using xterm.js with multi-tab support, status bar, and indust
 
 ### 🧪 Prototype
 
-#### Tab Split/Pane Support
+### Tab Split/Pane Support
 **Tags**: `#ui` `#prototype` `#medium` `#advanced`
 **Status**: Planned for Phase 12+
 **Phase**: 12+
@@ -219,7 +219,7 @@ Terminal interface using xterm.js with multi-tab support, status bar, and indust
 - Pane navigation shortcuts
 - Tmux-inspired commands
 
-#### Screen Buffer Restoration
+### Screen Buffer Restoration
 **Tags**: `#ui` `#prototype` `#low` `#ux`
 **Status**: Planned for Phase 12+
 **Phase**: 12+

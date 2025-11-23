@@ -11,7 +11,7 @@ CodeMirror 6 integration providing in-browser file editing via the `vein` comman
 
 ### ✅ Production
 
-#### CodeMirror 6 Integration
+### CodeMirror 6 Integration
 **Tags**: `#editor` `#production` `#high` `#core-feature`
 **Status**: Stable, production-ready
 **Phase**: 4
@@ -29,7 +29,7 @@ CodeMirror 6 integration providing in-browser file editing via the `vein` comman
 
 **Files**: `src/ui/editor.js` (~400 lines)
 
-#### File Operations
+### File Operations
 **Tags**: `#editor` `#production` `#high` `#file-io`
 **Status**: Complete save/load with VFS integration
 **Phase**: 4
@@ -46,7 +46,7 @@ CodeMirror 6 integration providing in-browser file editing via the `vein` comman
 
 **Files**: `src/ui/editor.js`
 
-#### Keyboard Shortcuts
+### Keyboard Shortcuts
 **Tags**: `#editor` `#production` `#high` `#ux`
 **Status**: Complete keyboard control
 **Phase**: 4
@@ -65,7 +65,7 @@ CodeMirror 6 integration providing in-browser file editing via the `vein` comman
 
 **Files**: `src/ui/editor.js`, `src/terminal.js` (F12 passthrough)
 
-#### Undo/Redo Support
+### Undo/Redo Support
 **Tags**: `#editor` `#production` `#high` `#editing`
 **Status**: Complete with CodeMirror history extension
 **Phase**: 4
@@ -81,7 +81,7 @@ CodeMirror 6 integration providing in-browser file editing via the `vein` comman
 
 **Files**: `src/ui/editor.js` (history extension)
 
-#### vein Command
+### vein Command
 **Tags**: `#editor` `#production` `#high` `#command`
 **Status**: Complete file opening command
 **Phase**: 4
@@ -109,7 +109,7 @@ None - editor is feature-complete for current scope!
 
 ### 🧪 Prototype
 
-#### Vim Mode
+### Vim Mode
 **Tags**: `#editor` `#prototype` `#medium` `#keybindings`
 **Status**: Deferred due to CDN dependency conflicts
 **Phase**: Future (requires bundler or dependency resolution)
@@ -123,7 +123,7 @@ None - editor is feature-complete for current scope!
 2. Implement custom bundler setup (conflicts with vanilla-only constraint)
 3. Implement minimal vim mode from scratch (low priority)
 
-#### Syntax Highlighting
+### Syntax Highlighting
 **Tags**: `#editor` `#prototype` `#medium` `#ux`
 **Status**: Deferred due to same CDN dependency conflicts
 **Phase**: Future (requires bundler)
@@ -134,7 +134,7 @@ None - editor is feature-complete for current scope!
 
 **Current**: Plain text editing only (acceptable for scripts and configs)
 
-#### Multi-File Editing
+### Multi-File Editing
 **Tags**: `#editor` `#prototype` `#low` `#ux`
 **Status**: Not implemented
 **Phase**: Future (Phase 12+)
@@ -147,7 +147,7 @@ None - editor is feature-complete for current scope!
 - Dirty state per file
 - Save all / close all
 
-#### Split Panes
+### Split Panes
 **Tags**: `#editor` `#prototype` `#low` `#advanced`
 **Status**: Not implemented
 **Phase**: Future (Phase 12+)

@@ -258,7 +258,7 @@ Bad:   ☠️ Oops! Something went wrong! 😅
 ### 2. Information Dense, Not Cluttered
 
 ```
-Good:  44 commands, 6 modules, 8 processes
+Good:  47 commands, 5 modules, 8 processes
 Bad:   [Loading...] Please wait... Almost there...
 ```
 

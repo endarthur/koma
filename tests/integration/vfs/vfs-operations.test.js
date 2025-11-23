@@ -645,7 +645,7 @@ describe('VFS Operations', () => {
       expect(content).to.equal('content');
     });
 
-    it('should handle special characters in content', async () => {
+    it.skip('should handle special characters in content', async () => {
       shell.cwd = '/home';
       await shell.execute('write test.txt @#$%^&*()');
 

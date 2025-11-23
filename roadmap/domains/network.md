@@ -11,7 +11,7 @@ Network operations for HTTP requests, file downloads, and future CDN integration
 
 ### ✅ Production
 
-#### wget Command
+### wget Command
 **Tags**: `#network` `#production` `#medium` `#download`
 **Status**: Basic HTTP download functionality
 **Phase**: 5.6
@@ -42,7 +42,7 @@ wget --help                                     # Show help
 
 **Files**: `src/commands/shell.js`, `docs/man/shell/wget.1.md`
 
-#### http Stdlib Module
+### http Stdlib Module
 **Tags**: `#network` `#production` `#high` `#stdlib`
 **Status**: Complete fetch wrappers for scripts
 **Phase**: 5
@@ -67,7 +67,7 @@ wget --help                                     # Show help
 
 ### 🔧 Working
 
-#### Enhanced HTTP Operations
+### Enhanced HTTP Operations
 **Tags**: `#network` `#working` `#medium` `#enhancement`
 **Status**: Planned enhancements to wget and http module
 **Phase**: 7-8
@@ -89,7 +89,7 @@ wget --help                                     # Show help
 - Custom headers support
 - Better error handling
 
-#### API Helpers
+### API Helpers
 **Tags**: `#network` `#working` `#medium` `#convenience`
 **Status**: Planned for future
 **Phase**: 8+
@@ -105,7 +105,7 @@ wget --help                                     # Show help
 
 ### 🧪 Prototype
 
-#### CDN Integration for Packages
+### CDN Integration for Packages
 **Tags**: `#network` `#prototype` `#medium` `#packages`
 **Status**: Planned for Phase 7 (Package Management)
 **Phase**: 7
@@ -126,7 +126,7 @@ wget --help                                     # Show help
 
 **Files**: Future `src/packages/provenance.js`
 
-#### Offline Package Cache
+### Offline Package Cache
 **Tags**: `#network` `#prototype` `#medium` `#offline`
 **Status**: Planned for Phase 7
 **Phase**: 7
@@ -139,7 +139,7 @@ wget --help                                     # Show help
 - Cache invalidation strategies
 - Storage quota management
 
-#### WebSocket Support
+### WebSocket Support
 **Tags**: `#network` `#prototype` `#low` `#realtime`
 **Status**: Deferred
 **Phase**: Future (Phase 12+)

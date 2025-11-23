@@ -4,6 +4,7 @@
  */
 
 import * as Comlink from 'comlink';
+import { statusIndicators } from '../ui/status-indicators.js';
 
 /**
  * Parse error code from VFS error message
@@ -26,11 +27,25 @@ function restoreErrorCode(error) {
 }
 
 /**
- * Wrap kernel method to restore error codes
+ * Filesystem operations that should trigger disk activity LED
  */
-function wrapMethod(method) {
+const DISK_OPERATIONS = new Set([
+  'readFile', 'writeFile', 'readdir', 'stat', 'exists',
+  'mkdir', 'unlink', 'unlinkRecursive', 'rename',
+  'copyFile', 'move', 'exportVFS', 'importVFS'
+]);
+
+/**
+ * Wrap kernel method to restore error codes and trigger activity indicators
+ */
+function wrapMethod(method, methodName) {
   return async function(...args) {
     try {
+      // Trigger disk activity for filesystem operations
+      if (DISK_OPERATIONS.has(methodName)) {
+        statusIndicators.diskActivity();
+      }
+
       return await method(...args);
     } catch (error) {
       throw restoreErrorCode(error);
@@ -104,12 +119,13 @@ class KernelClient {
       }
 
       // Return a Proxy that wraps all kernel methods to restore error codes
+      // and trigger activity indicators
       return new Proxy(this.kernel, {
         get(target, prop) {
           const value = target[prop];
-          // If it's a function, wrap it to restore error codes
+          // If it's a function, wrap it to restore error codes and track activity
           if (typeof value === 'function') {
-            return wrapMethod(value.bind(target));
+            return wrapMethod(value.bind(target), prop);
           }
           return value;
         }

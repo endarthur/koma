@@ -11,7 +11,7 @@ Built-in shell commands providing filesystem operations, process management, and
 
 ### ✅ Production
 
-#### Filesystem Commands (17)
+### Filesystem Commands (17)
 **Tags**: `#commands` `#production` `#critical` `#filesystem`
 **Status**: Complete with argparse schemas
 **Phase**: 2, 5.6 (pipes support)
@@ -45,7 +45,7 @@ Built-in shell commands providing filesystem operations, process management, and
 
 **Files**: `src/commands/filesystem.js` (~1200 lines)
 
-#### Shell Commands (15)
+### Shell Commands (15)
 **Tags**: `#commands` `#production` `#critical` `#shell`
 **Status**: Complete with argparse schemas
 **Phase**: 2, 5 (processes), 5.5 (system management)
@@ -71,7 +71,7 @@ Built-in shell commands providing filesystem operations, process management, and
 
 **Files**: `src/commands/shell.js` (~800 lines)
 
-#### System Commands (5)
+### System Commands (5)
 **Tags**: `#commands` `#production` `#high` `#system`
 **Status**: Complete system management suite
 **Phase**: 5.5
@@ -92,7 +92,7 @@ Built-in shell commands providing filesystem operations, process management, and
 
 **Files**: `src/commands/shell.js` (koma command)
 
-#### Data Processing Commands (4)
+### Data Processing Commands (4)
 **Tags**: `#commands` `#production` `#high` `#data`
 **Status**: Complete Unix-style text processing
 **Phase**: 5.6
@@ -112,7 +112,7 @@ Built-in shell commands providing filesystem operations, process management, and
 
 **Files**: `src/commands/filesystem.js`, `src/commands/shell.js`
 
-#### Network Commands (1)
+### Network Commands (1)
 **Tags**: `#commands` `#production` `#medium` `#network`
 **Status**: Basic HTTP download support
 **Phase**: 5.6
@@ -130,7 +130,7 @@ Built-in shell commands providing filesystem operations, process management, and
 
 **Files**: `src/commands/shell.js`
 
-#### Editor Command (1)
+### Editor Command (1)
 **Tags**: `#commands` `#production` `#high` `#editor`
 **Status**: Complete editor integration
 **Phase**: 4
@@ -147,7 +147,7 @@ Built-in shell commands providing filesystem operations, process management, and
 
 **Files**: `src/commands/filesystem.js`
 
-#### Backup/Restore Commands (2)
+### Backup/Restore Commands (2)
 **Tags**: `#commands` `#production` `#high` `#backup`
 **Status**: Complete backup system
 **Phase**: 5.7
@@ -166,7 +166,7 @@ Built-in shell commands providing filesystem operations, process management, and
 
 **Files**: `src/commands/filesystem.js`
 
-#### Argparse Migration
+### Argparse Migration
 **Tags**: `#commands` `#production` `#high` `#developer-experience`
 **Status**: All 48 commands migrated to argparse schemas
 **Phase**: 5 Maintenance
@@ -193,7 +193,7 @@ None - all planned commands are implemented and stable!
 
 ### 🧪 Prototype
 
-#### Advanced Shell Builtins
+### Advanced Shell Builtins
 **Tags**: `#commands` `#prototype` `#medium` `#scripting`
 **Status**: Planned for Phase 8
 **Phase**: 8
@@ -210,7 +210,7 @@ None - all planned commands are implemented and stable!
 - `readonly` - Make variables read-only
 - `trap` - Signal handling
 
-#### Editor Commands
+### Editor Commands
 **Tags**: `#commands` `#prototype` `#low` `#editor`
 **Status**: Deferred to Phase 12+
 **Phase**: 12+

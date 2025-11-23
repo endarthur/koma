@@ -65,10 +65,12 @@ export function showWarning(term, message) {
 /**
  * Display success message in terminal
  * @param {object} term - xterm.js terminal instance
+ * @param {string} prefix - Optional prefix (e.g., command name)
  * @param {string} message - Success message
  */
-export function showSuccess(term, message) {
-  term.writeln(`\x1b[32m${message}\x1b[0m`);
+export function showSuccess(term, prefix, message) {
+  const text = prefix ? `${prefix}: ${message}` : message;
+  term.writeln(`\x1b[32m${text}\x1b[0m`);
 }
 
 /**
