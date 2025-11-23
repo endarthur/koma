@@ -51,6 +51,7 @@ import { parse } from './lib/xterm-kit/argparse.js';
 | Draw table | `renderTable(term, {columns: [...], rows: [...]})` |
 | Draw box | `renderBox(term, {title: 'Title', content: 'Text'})` |
 | Set theme | `setTheme(olivineTheme)` |
+| Tab completion | `const completer = new Autocomplete({commands: [...]})` |
 
 ## Function Signatures (Most Common)
 
@@ -112,6 +113,13 @@ renderBox(term: Terminal, options: object): void
 new KeyHandler(term: Terminal)
 keys.on(key: string, handler: Function): void
 keys.start(): void
+
+// autocomplete.js
+new Autocomplete(options: {commands?, subcommands?, registry?})
+autocomplete.complete(line: string, cursorPos?: number): {line, cursor, action}
+autocomplete.getCompletions(line: string): {completions, partial, type}
+createTabHandler(term: Terminal, completer: Autocomplete, state: object, redrawFn: Function): Function
+fromRegistry(registry: object, subcommands?: object): Autocomplete
 ```
 
 ## Common Schemas
@@ -153,6 +161,17 @@ keys.start(): void
 {
   backend: 'indexeddb' | 'memory',
   dbName: string  // Only for indexeddb
+}
+```
+
+### Autocomplete options
+```javascript
+{
+  commands: string[],              // Static command list
+  subcommands: object,             // Map of command -> subcommands
+  registry: object,                // CommandRegistry with getCommands()
+  completers: object,              // Custom completion functions
+  caseSensitive: boolean           // Default: false
 }
 ```
 
@@ -251,6 +270,62 @@ const backup = JSON.parse(localStorage.getItem('backup'));
 await vfs.importJSON(backup);
 ```
 
+## Autocomplete Pattern
+
+```javascript
+import { Autocomplete, createTabHandler } from './lib/xterm-kit/autocomplete.js';
+
+// Option 1: Static lists
+const completer = new Autocomplete({
+  commands: ['help', 'books', 'status', 'clear'],
+  subcommands: {
+    'books': ['list', 'search', 'add'],
+    'status': ['show', 'daemon']
+  }
+});
+
+// Option 2: With command registry (DRY - no duplication!)
+import { commandRegistry } from './utils/command-registry.js';
+const completer = new Autocomplete({
+  registry: commandRegistry,
+  subcommands: {
+    'books': ['list', 'search', 'add']
+  }
+});
+
+// Option 3: With custom completers (e.g., dynamic file paths)
+const completer = new Autocomplete({
+  commands: ['cat', 'ls', 'cd'],
+  completers: {
+    'cat': async (partial) => {
+      // Return matching file names
+      const files = await vfs.readdir('/');
+      return files.filter(f => f.name.startsWith(partial)).map(f => f.name);
+    }
+  }
+});
+
+// Integrate with input handler
+const state = { currentLine: '', cursorPos: 0 };
+
+const handleTab = createTabHandler(term, completer, state, (line) => {
+  // Redraw prompt + line
+  term.write('\r\x1b[K\x1b[32m$\x1b[0m ' + line);
+});
+
+term.onData(data => {
+  if (data === '\t') {  // Tab key
+    handleTab();
+  } else if (data === '\r') {  // Enter
+    // ... execute command
+  } else {
+    // ... handle other input
+    state.currentLine += data;
+    state.cursorPos++;
+  }
+});
+```
+
 ## Command Template
 
 ```javascript
@@ -315,18 +390,19 @@ KEYS.BACKSPACE, KEYS.DELETE, KEYS.TAB, KEYS.ENTER, KEYS.ESCAPE
 ## Module File Sizes
 
 ```
-argparse.js    ~360 lines   Argument parsing
-output.js      ~200 lines   Formatted output
-parser.js      ~157 lines   Command parsing
-themes.js      ~248 lines   Theme system
-pager.js       ~401 lines   Interactive viewer
-indicators.js  ~265 lines   Status LEDs
-vfs-lite.js    ~620 lines   Virtual filesystem
-progress.js    ~248 lines   Progress indicators
-table.js       ~153 lines   Tables
-box.js         ~258 lines   Borders/boxes
-keys.js        ~265 lines   Keyboard handling
-Total: ~3,600 lines, 0 dependencies
+argparse.js      ~360 lines   Argument parsing
+output.js        ~200 lines   Formatted output
+parser.js        ~157 lines   Command parsing
+themes.js        ~248 lines   Theme system
+pager.js         ~401 lines   Interactive viewer
+indicators.js    ~265 lines   Status LEDs
+vfs-lite.js      ~620 lines   Virtual filesystem
+progress.js      ~248 lines   Progress indicators
+table.js         ~153 lines   Tables
+box.js           ~258 lines   Borders/boxes
+keys.js          ~265 lines   Keyboard handling
+autocomplete.js  ~320 lines   Tab completion
+Total: ~3,900 lines, 0 dependencies
 ```
 
 ## When to Use What
@@ -345,6 +421,7 @@ Total: ~3,600 lines, 0 dependencies
 | Handle Ctrl+C, arrows | keys.js |
 | Build line editor | keys.js (LineEditor) |
 | Show status LEDs | indicators.js |
+| Tab completion for commands | autocomplete.js |
 
 ## Zero to Hero in 5 Minutes
 

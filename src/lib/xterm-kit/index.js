@@ -41,3 +41,6 @@ export { Box, renderBox, drawSeparator } from './box.js';
 
 // Key handling
 export { KeyHandler, LineEditor, KEYS } from './keys.js';
+
+// Tab completion
+export { Autocomplete, createTabHandler, fromRegistry } from './autocomplete.js';

@@ -15,6 +15,7 @@ Extracted from [koma](https://github.com/your-org/koma) - battle-tested in produ
 - 📊 **Tables & Boxes** - Formatted data display
 - ⏳ **Progress Indicators** - Spinners and progress bars
 - ⌨️  **Key Handling** - Simplified keyboard input
+- ⚡ **Tab Completion** - Bash-style autocomplete with registry support
 - 💅 **Output Formatting** - Colors, sizing, dates
 - 🔍 **Command Parsing** - Quote-aware tokenization
 
@@ -488,6 +489,111 @@ if (KeyHandler.matches(data, 'ctrl+c')) {
 - `new LineEditor(term, options)` - Create editor
 - `start()` - Start editing
 - `stop()` - Stop editing
+
+### 11. Tab Completion (`autocomplete.js`)
+
+Intelligent command and argument completion with bash-style behavior.
+
+```javascript
+import { Autocomplete, createTabHandler, fromRegistry } from './lib/xterm-kit/autocomplete.js';
+
+// Option 1: Static command/subcommand lists
+const completer = new Autocomplete({
+  commands: ['help', 'books', 'status', 'clear'],
+  subcommands: {
+    'books': ['list', 'search', 'add'],
+    'status': ['show', 'daemon']
+  }
+});
+
+// Option 2: With command registry (auto-syncs, no duplication!)
+import { commandRegistry } from './utils/command-registry.js';
+const completer = new Autocomplete({
+  registry: commandRegistry,
+  subcommands: {
+    'books': ['list', 'search', 'add']
+  }
+});
+
+// Or use the helper
+const completer = fromRegistry(commandRegistry, {
+  'books': ['list', 'search', 'add']
+});
+
+// Option 3: With custom completion functions
+const completer = new Autocomplete({
+  commands: ['cat', 'ls', 'cd'],
+  completers: {
+    'cat': async (partial) => {
+      // Return matching file names
+      const files = await vfs.readdir('/');
+      return files.filter(f => f.name.startsWith(partial)).map(f => f.name);
+    }
+  }
+});
+
+// Integrate with input handler
+const state = { currentLine: '', cursorPos: 0 };
+
+const handleTab = createTabHandler(term, completer, state, (line) => {
+  // Redraw prompt + line
+  term.write('\r\x1b[K\x1b[32m$\x1b[0m ' + line);
+});
+
+term.onData(data => {
+  if (data === '\t') {  // Tab key
+    handleTab();
+  } else if (data === '\r') {  // Enter
+    // Execute command
+  } else {
+    // Handle regular input
+    state.currentLine += data;
+    state.cursorPos++;
+  }
+});
+
+// Manual completion (without tab handler)
+const result = completer.complete('boo', 3);
+// {
+//   line: 'books',
+//   cursor: 5,
+//   completions: ['books'],
+//   action: 'completed'
+// }
+
+// Get completion options only
+const options = completer.getCompletions('books ');
+// {
+//   completions: ['list', 'search', 'add'],
+//   partial: '',
+//   type: 'subcommand',
+//   level: 1
+// }
+```
+
+**Completion Behavior:**
+- **Single match**: Auto-completes immediately
+- **Multiple matches**: Shows options (bash-style)
+- **No matches**: Silent (like real terminals)
+- **Multi-level**: Commands → subcommands → custom completers
+
+**API:**
+- `new Autocomplete(options)` - Create completer
+- `complete(line, cursorPos?)` - Apply completion
+- `getCompletions(line, cursorPos?)` - Get completion options
+- `addCompleter(context, fn)` - Add custom completer
+- `setCommands(commands)` - Update command list
+- `setSubcommands(subcommands)` - Update subcommand map
+- `refresh()` - Re-sync from registry
+- `createTabHandler(term, completer, state, redrawFn)` - Create Tab key handler
+- `fromRegistry(registry, subcommands?)` - Create from command registry
+
+**Options:**
+- `commands`: Static list of command names
+- `subcommands`: Map of command → subcommands
+- `registry`: CommandRegistry with `getCommands()` method
+- `completers`: Map of context → completion functions
+- `caseSensitive`: Case-sensitive matching (default: false)
 
 ## Status Indicators (`indicators.js`)
 
