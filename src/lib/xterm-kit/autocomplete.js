@@ -69,7 +69,7 @@ export class Autocomplete {
   }
 
   /**
-   * Extract commands from registry
+   * Extract commands and subcommands from registry
    * @private
    */
   _syncFromRegistry() {
@@ -84,8 +84,21 @@ export class Autocomplete {
       typeof cmd === 'string' ? cmd : cmd.name
     );
 
-    // TODO: In future, registry could also provide subcommand metadata
-    // For now, subcommands must be provided explicitly
+    // Extract subcommands from registry metadata
+    // Only override if subcommands weren't explicitly provided
+    if (typeof this.registry.getSubcommands === 'function') {
+      registeredCommands.forEach(cmd => {
+        const cmdName = typeof cmd === 'string' ? cmd : cmd.name;
+        const registrySubcmds = this.registry.getSubcommands(cmdName);
+
+        if (registrySubcmds && Object.keys(registrySubcmds).length > 0) {
+          // Don't override if user explicitly provided subcommands
+          if (!this.subcommands[cmdName]) {
+            this.subcommands[cmdName] = Object.keys(registrySubcmds);
+          }
+        }
+      });
+    }
   }
 
   /**

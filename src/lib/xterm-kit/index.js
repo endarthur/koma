@@ -5,7 +5,7 @@
  * A comprehensive toolkit for building shell-like applications in the browser.
  * Includes argument parsing, VFS, paging, progress indicators, and more.
  *
- * @version 1.1.1
+ * @version 1.1.2
  * @license MIT
  */
 
