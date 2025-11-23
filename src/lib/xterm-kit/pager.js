@@ -20,6 +20,8 @@ export class Pager {
    * @param {boolean} [options.showPercent=true] - Show percentage in prompt
    * @param {boolean} [options.searchCaseSensitive=false] - Case-sensitive search
    * @param {object} [options.theme] - Theme override (uses global if not specified)
+   * @param {object[]} [options.pauseHandlers] - External input handlers to dispose while pager is active
+   * @param {Function} [options.onQuit] - Callback when pager quits (use to re-setup input handlers)
    */
   constructor(term, options = {}) {
     this.term = term;
@@ -41,6 +43,10 @@ export class Pager {
     this.mode = 'view'; // 'view' or 'search'
     this.disposable = null;
     this.cursorSaved = false;
+
+    // External handlers to dispose when entering pager
+    this.pauseHandlers = options.pauseHandlers || [];
+    this.onQuitCallback = options.onQuit || null;
   }
 
   /**
@@ -61,6 +67,13 @@ export class Pager {
       this.lines.forEach(line => this.term.writeln(line));
       return;
     }
+
+    // Pause external handlers while pager is active
+    this.pauseHandlers.forEach(handler => {
+      if (handler && typeof handler.dispose === 'function') {
+        handler.dispose();
+      }
+    });
 
     // Enter pager mode
     this.render();
@@ -467,6 +480,11 @@ export class Pager {
 
     // Clear prompt line
     this.term.write('\r\x1b[K');
+
+    // Call onQuit callback if provided (for re-setting up input handlers)
+    if (this.onQuitCallback) {
+      this.onQuitCallback();
+    }
 
     resolve();
   }
