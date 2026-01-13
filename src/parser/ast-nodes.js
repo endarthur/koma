@@ -120,6 +120,54 @@ export class SequenceNode extends ASTNode {
 }
 
 /**
+ * LogicalAndNode - Commands connected by && (short-circuit AND)
+ * Right side only executes if left side succeeds (exit code 0)
+ *
+ * Examples:
+ *   mkdir dir && cd dir
+ *   test -f file && cat file
+ */
+export class LogicalAndNode extends ASTNode {
+  /**
+   * @param {ASTNode} left - Left command
+   * @param {ASTNode} right - Right command (only runs if left succeeds)
+   */
+  constructor(left, right) {
+    super('LogicalAnd');
+    this.left = left;
+    this.right = right;
+  }
+
+  toString() {
+    return `LogicalAnd(${this.left.toString()} && ${this.right.toString()})`;
+  }
+}
+
+/**
+ * LogicalOrNode - Commands connected by || (short-circuit OR)
+ * Right side only executes if left side fails (exit code non-zero)
+ *
+ * Examples:
+ *   test -f file || echo "File not found"
+ *   mkdir dir || echo "Failed to create dir"
+ */
+export class LogicalOrNode extends ASTNode {
+  /**
+   * @param {ASTNode} left - Left command
+   * @param {ASTNode} right - Right command (only runs if left fails)
+   */
+  constructor(left, right) {
+    super('LogicalOr');
+    this.left = left;
+    this.right = right;
+  }
+
+  toString() {
+    return `LogicalOr(${this.left.toString()} || ${this.right.toString()})`;
+  }
+}
+
+/**
  * AssignmentNode - Variable assignment
  *
  * Examples:

@@ -19,6 +19,8 @@ import {
   PipelineNode,
   CompoundNode,
   SequenceNode,
+  LogicalAndNode,
+  LogicalOrNode,
   AssignmentNode,
   VariableNode,
   EmptyNode
@@ -59,6 +61,12 @@ export class Executor {
 
         case 'Sequence':
           return await this.executeSequence(node);
+
+        case 'LogicalAnd':
+          return await this.executeLogicalAnd(node);
+
+        case 'LogicalOr':
+          return await this.executeLogicalOr(node);
 
         case 'Assignment':
           return await this.executeAssignment(node);
@@ -241,6 +249,50 @@ export class Executor {
   }
 
   /**
+   * Execute a logical AND (&&)
+   * Right side only executes if left side succeeds (exit code 0)
+   * @param {LogicalAndNode} node - LogicalAnd node
+   * @returns {Promise<number>} Exit code
+   */
+  async executeLogicalAnd(node) {
+    // Execute left side
+    const leftExitCode = await this.execute(node.left);
+
+    // Only execute right side if left succeeded (exit code 0)
+    if (leftExitCode === 0) {
+      const rightExitCode = await this.execute(node.right);
+      this.shell.lastExitCode = rightExitCode;
+      return rightExitCode;
+    }
+
+    // Left failed, return its exit code (don't execute right)
+    this.shell.lastExitCode = leftExitCode;
+    return leftExitCode;
+  }
+
+  /**
+   * Execute a logical OR (||)
+   * Right side only executes if left side fails (exit code non-zero)
+   * @param {LogicalOrNode} node - LogicalOr node
+   * @returns {Promise<number>} Exit code
+   */
+  async executeLogicalOr(node) {
+    // Execute left side
+    const leftExitCode = await this.execute(node.left);
+
+    // Only execute right side if left failed (exit code non-zero)
+    if (leftExitCode !== 0) {
+      const rightExitCode = await this.execute(node.right);
+      this.shell.lastExitCode = rightExitCode;
+      return rightExitCode;
+    }
+
+    // Left succeeded, return its exit code (don't execute right)
+    this.shell.lastExitCode = leftExitCode;
+    return leftExitCode;
+  }
+
+  /**
    * Execute a variable assignment
    * @param {AssignmentNode} node - Assignment node
    * @returns {Promise<number>} Exit code (always 0)
@@ -266,14 +318,34 @@ export class Executor {
         const value = this.expandVariable(arg.name);
         expanded.push(value);
       } else if (typeof arg === 'string') {
-        // Regular string argument
-        expanded.push(arg);
+        // Expand embedded variables in string (e.g., "hello $NAME" or "count: ${COUNT}")
+        const expandedStr = this.expandStringVariables(arg);
+        expanded.push(expandedStr);
       } else {
         throw new Error(`Invalid argument type: ${typeof arg}`);
       }
     }
 
     return expanded;
+  }
+
+  /**
+   * Expand variables embedded within a string
+   * Handles both $VAR and ${VAR} syntax
+   * @param {string} str - String that may contain variable references
+   * @returns {string} String with variables expanded
+   */
+  expandStringVariables(str) {
+    // Pattern matches $VAR or ${VAR}
+    // $VAR: $ followed by alphanumeric/underscore until non-matching char
+    // ${VAR}: $ followed by { then any chars until }
+    return str.replace(/\$\{([^}]+)\}|\$([a-zA-Z_?#@][a-zA-Z0-9_]*)/g, (match, braceVar, simpleVar) => {
+      const varName = braceVar || simpleVar;
+      if (varName) {
+        return this.expandVariable(varName);
+      }
+      return match; // Return unchanged if no variable name found
+    });
   }
 
   /**

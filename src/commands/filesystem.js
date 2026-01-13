@@ -214,10 +214,10 @@ export function registerFilesystemCommands(shell, editor = null) {
         // Read from stdin
         const lines = ctx.getStdinLines();
         lines.forEach(line => ctx.writeln(line));
-        return;
+        return 0;
       } else {
         showError(shell.term, 'cat', 'missing file operand');
-        return;
+        return 1;
       }
     }
 
@@ -229,12 +229,21 @@ export function registerFilesystemCommands(shell, editor = null) {
         const filePath = resolvePath(fileArg, shell.cwd, shell.env.HOME);
         const content = await withTimeout(kernel.readFile(filePath), 'cat', 'read');
 
-        // Split by newlines and write each line separately
-        const lines = content.split('\n');
-        lines.forEach(line => ctx.writeln(line));
+        // Split by newlines and write each line
+        // Handle trailing newline properly to avoid extra blank line
+        if (content.length > 0) {
+          const lines = content.split('\n');
+          // If content ends with newline, last element is empty - don't output it
+          const lastIndex = content.endsWith('\n') ? lines.length - 1 : lines.length;
+          for (let i = 0; i < lastIndex; i++) {
+            ctx.writeln(lines[i]);
+          }
+        }
       }
+      return 0;
     } catch (error) {
       showError(shell.term, 'cat', error.message);
+      return 1;
     }
   }, {
     description: 'Concatenate and display file contents',
@@ -367,14 +376,18 @@ export function registerFilesystemCommands(shell, editor = null) {
     category: 'filesystem'
   });
 
-  // Copy file
+  // Copy file or directory
   shell.registerCommand('cp', async (args, shell) => {
     const schema = {
-      description: 'Copy files',
+      description: 'Copy files and directories',
       positional: { description: '<source> <destination>' },
+      flags: {
+        recursive: { short: 'r', description: 'Copy directories recursively' }
+      },
       examples: [
         { command: 'cp file.txt copy.txt', description: 'Copy file.txt to copy.txt' },
-        { command: 'cp test.js /home/', description: 'Copy test.js to /home/' }
+        { command: 'cp test.js /home/', description: 'Copy test.js to /home/' },
+        { command: 'cp -r mydir/ backup/', description: 'Copy directory recursively' }
       ]
     };
 
@@ -384,7 +397,7 @@ export function registerFilesystemCommands(shell, editor = null) {
 
     if (parsed.positional.length < 2) {
       showError(shell.term, 'cp', 'missing file operand');
-      shell.term.writeln('Usage: cp SOURCE DEST');
+      shell.term.writeln('Usage: cp [-r] SOURCE DEST');
       return;
     }
 
@@ -392,24 +405,63 @@ export function registerFilesystemCommands(shell, editor = null) {
       const kernel = await kernelClient.getKernel();
       const srcPath = resolvePath(parsed.positional[0], shell.cwd, shell.env.HOME);
       let destPath = resolvePath(parsed.positional[1], shell.cwd, shell.env.HOME);
+      const recursive = parsed.flags.recursive;
 
-      // If destination is a directory, append source filename
+      // Check source exists and get its type
+      const srcStat = await kernel.stat(srcPath);
+
+      // If source is a directory and -r not specified, error
+      if (srcStat.type === 'directory' && !recursive) {
+        showError(shell.term, 'cp', `omitting directory '${parsed.positional[0]}' (use -r to copy directories)`);
+        return;
+      }
+
+      // If destination is a directory, append source basename
       try {
         const destStat = await kernel.stat(destPath);
         if (destStat.type === 'directory') {
-          const srcFilename = path.basename(srcPath);
-          destPath = path.join(destPath, srcFilename);
+          const srcBasename = path.basename(srcPath);
+          destPath = path.join(destPath, srcBasename);
         }
       } catch (e) {
-        // Destination doesn't exist, use as-is (creating new file)
+        // Destination doesn't exist, use as-is
       }
 
-      await withTimeout(kernel.copyFile(srcPath, destPath), 'cp', 'write');
+      // Helper function for recursive copy
+      async function copyRecursive(src, dest) {
+        const stat = await kernel.stat(src);
+
+        if (stat.type === 'file') {
+          // Copy file
+          await kernel.copyFile(src, dest);
+        } else if (stat.type === 'directory') {
+          // Create destination directory
+          try {
+            await kernel.mkdir(dest);
+          } catch (e) {
+            // Directory might already exist, that's ok
+          }
+
+          // Copy all entries
+          const entries = await kernel.readdir(src);
+          for (const entry of entries) {
+            const srcChild = path.join(src, entry.name);
+            const destChild = path.join(dest, entry.name);
+            await copyRecursive(srcChild, destChild);
+          }
+        }
+      }
+
+      if (recursive && srcStat.type === 'directory') {
+        await withTimeout(copyRecursive(srcPath, destPath), 'cp', 'write', 30000);
+      } else {
+        await withTimeout(kernel.copyFile(srcPath, destPath), 'cp', 'write');
+      }
     } catch (error) {
       showError(shell.term, 'cp', error.message);
     }
   }, {
-    description: 'Copy files',
+    description: 'Copy files and directories',
     category: 'filesystem'
   });
 
@@ -461,15 +513,20 @@ export function registerFilesystemCommands(shell, editor = null) {
   });
 
   // Print working directory
-  shell.registerCommand('pwd', (args, shell) => {
-    shell.term.writeln(shell.cwd);
+  shell.registerCommand('pwd', async (args, shell, context) => {
+    const { createTerminalContext } = await import('../utils/command-context.js');
+    const ctx = context || createTerminalContext(shell.term);
+    ctx.writeln(shell.cwd);
   }, {
     description: 'Print working directory',
     category: 'filesystem'
   });
 
   // Tree - visualize directory structure
-  shell.registerCommand('tree', async (args, shell) => {
+  shell.registerCommand('tree', async (args, shell, context) => {
+    const { createTerminalContext } = await import('../utils/command-context.js');
+    const ctx = context || createTerminalContext(shell.term);
+
     try {
       const kernel = await kernelClient.getKernel();
       const targetPath = args[0]
@@ -483,7 +540,7 @@ export function registerFilesystemCommands(shell, editor = null) {
 
         // Print current directory name
         if (prefix === '') {
-          shell.term.writeln(`\x1b[34m${path}\x1b[0m`);
+          ctx.writeln(`\x1b[34m${path}\x1b[0m`);
         }
 
         // Sort entries: directories first, then files
@@ -500,7 +557,7 @@ export function registerFilesystemCommands(shell, editor = null) {
             ? `\x1b[34m${entry.name}\x1b[0m`
             : entry.name;
 
-          shell.term.writeln(`${prefix}${connector}${name}`);
+          ctx.writeln(`${prefix}${connector}${name}`);
 
           // Recurse into directories
           if (entry.type === 'directory') {
@@ -562,15 +619,19 @@ export function registerFilesystemCommands(shell, editor = null) {
         number: { short: 'n', description: 'Show line numbers' },
         ignoreCase: { short: 'i', description: 'Case-insensitive search' },
         invert: { short: 'v', description: 'Invert match (show non-matching lines)' },
-        count: { short: 'c', description: 'Only show count of matching lines' }
+        count: { short: 'c', description: 'Only show count of matching lines' },
+        recursive: { short: 'r', description: 'Search directories recursively' },
+        filesWithMatches: { short: 'l', description: 'Only show filenames with matches' }
       },
-      positional: { description: '<pattern> [file]' },
+      positional: { description: '<pattern> [file|directory]' },
       examples: [
         { command: 'grep error log.txt', description: 'Find "error" in log.txt' },
         { command: 'grep -n error log.txt', description: 'Show line numbers' },
         { command: 'grep -i ERROR log.txt', description: 'Case-insensitive search' },
         { command: 'cat file.txt | grep pattern', description: 'Search piped input' },
-        { command: 'grep -c error log.txt', description: 'Count matches' }
+        { command: 'grep -c error log.txt', description: 'Count matches' },
+        { command: 'grep -r TODO /home', description: 'Search recursively in directory' },
+        { command: 'grep -rl TODO .', description: 'List files containing TODO' }
       ]
     };
 
@@ -584,44 +645,107 @@ export function registerFilesystemCommands(shell, editor = null) {
     }
 
     try {
+      const kernel = await kernelClient.getKernel();
       const pattern = parsed.positional[0];
-      const flags = parsed.flags.ignoreCase ? 'i' : '';
+      const flags = parsed.flags.ignoreCase ? 'gi' : 'g';
       const regex = new RegExp(pattern, flags);
-      let lines = [];
 
-      // Get input from stdin or file
+      // Helper to search a single file
+      async function searchFile(filePath, showFilename = false) {
+        const content = await kernel.readFile(filePath);
+        const lines = content.split('\n');
+        const matches = [];
+
+        lines.forEach((line, i) => {
+          const isMatch = regex.test(line);
+          // Reset regex lastIndex for global flag
+          regex.lastIndex = 0;
+          const shouldOutput = parsed.flags.invert ? !isMatch : isMatch;
+
+          if (shouldOutput) {
+            matches.push({ line, lineNum: i + 1, filePath });
+          }
+        });
+
+        return matches;
+      }
+
+      // Helper for recursive search
+      async function searchRecursive(dirPath) {
+        const allMatches = [];
+        const entries = await kernel.readdir(dirPath);
+
+        for (const entry of entries) {
+          const fullPath = path.join(dirPath, entry.name);
+
+          if (entry.type === 'directory') {
+            const subMatches = await searchRecursive(fullPath);
+            allMatches.push(...subMatches);
+          } else if (entry.type === 'file') {
+            try {
+              const matches = await searchFile(fullPath, true);
+              allMatches.push(...matches);
+            } catch (e) {
+              // Skip files we can't read
+            }
+          }
+        }
+
+        return allMatches;
+      }
+
+      let allMatches = [];
+      let searchedMultipleFiles = false;
+
+      // Get input from stdin or file(s)
       if (ctx.hasStdin()) {
         // Reading from pipe
-        lines = ctx.getStdinLines();
+        const lines = ctx.getStdinLines();
+        lines.forEach((line, i) => {
+          const isMatch = regex.test(line);
+          regex.lastIndex = 0;
+          const shouldOutput = parsed.flags.invert ? !isMatch : isMatch;
+
+          if (shouldOutput) {
+            allMatches.push({ line, lineNum: i + 1, filePath: null });
+          }
+        });
       } else if (parsed.positional.length >= 2) {
-        // Reading from file
-        const filePath = resolvePath(parsed.positional[1], shell.cwd, shell.env.HOME);
-        const kernel = await kernelClient.getKernel();
-        const content = await kernel.readFile(filePath);
-        lines = content.split('\n');
+        const targetPath = resolvePath(parsed.positional[1], shell.cwd, shell.env.HOME);
+
+        // Check if target is a directory
+        try {
+          const stat = await kernel.stat(targetPath);
+
+          if (stat.type === 'directory') {
+            if (!parsed.flags.recursive) {
+              showError(shell.term, 'grep', `'${parsed.positional[1]}' is a directory (use -r for recursive search)`);
+              return;
+            }
+            allMatches = await searchRecursive(targetPath);
+            searchedMultipleFiles = true;
+          } else {
+            allMatches = await searchFile(targetPath);
+          }
+        } catch (e) {
+          showError(shell.term, 'grep', e.message);
+          return;
+        }
       } else {
         showError(shell.term, 'grep', 'no input provided');
         return;
       }
 
-      // Filter lines
-      const matches = [];
-      lines.forEach((line, i) => {
-        const isMatch = regex.test(line);
-        const shouldOutput = parsed.flags.invert ? !isMatch : isMatch;
-
-        if (shouldOutput) {
-          matches.push({ line, lineNum: i + 1 });
-        }
-      });
-
       // Output based on flags
       if (parsed.flags.count) {
-        // Just show count
-        ctx.writeln(matches.length.toString());
+        ctx.writeln(allMatches.length.toString());
+      } else if (parsed.flags.filesWithMatches) {
+        // Only show unique filenames with matches
+        const filesWithMatches = [...new Set(allMatches.map(m => m.filePath).filter(f => f))];
+        filesWithMatches.forEach(f => ctx.writeln(f));
       } else {
         // Output matching lines
-        matches.forEach(({ line, lineNum }) => {
+        allMatches.forEach(({ line, lineNum, filePath }) => {
           let output = line;
 
           // Add line numbers if requested
@@ -629,9 +753,15 @@ export function registerFilesystemCommands(shell, editor = null) {
             output = `${lineNum}:${output}`;
           }
 
+          // Add filename prefix if searching multiple files
+          if (searchedMultipleFiles && filePath) {
+            output = `${filePath}:${output}`;
+          }
+
           // Add color highlighting if in terminal (not piped/redirected)
           if (!ctx.isPiped && !ctx.isRedirected && !parsed.flags.invert) {
-            output = output.replace(regex, match => `\x1b[31m${match}\x1b[0m`);
+            const highlightRegex = new RegExp(pattern, parsed.flags.ignoreCase ? 'gi' : 'g');
+            output = output.replace(highlightRegex, match => `\x1b[31m${match}\x1b[0m`);
           }
 
           ctx.writeln(output);
@@ -646,28 +776,40 @@ export function registerFilesystemCommands(shell, editor = null) {
   });
 
   // Head - show first N lines of file
-  shell.registerCommand('head', async (args, shell) => {
-    if (args.length === 0) {
-      shell.term.writeln('\x1b[31mhead: missing file operand\x1b[0m');
+  shell.registerCommand('head', async (args, shell, context) => {
+    const { createTerminalContext } = await import('../utils/command-context.js');
+    const ctx = context || createTerminalContext(shell.term);
+
+    if (args.length === 0 && !ctx.hasStdin()) {
+      ctx.writeln('\x1b[31mhead: missing file operand\x1b[0m');
       return;
     }
 
     try {
       let numLines = 10;
       let filePath = args[0];
+      let lines = [];
 
       // Check for -n flag
-      if (args[0] === '-n' && args.length >= 3) {
+      if (args[0] === '-n' && args.length >= 2) {
         numLines = parseInt(args[1], 10);
-        filePath = args[2];
+        filePath = args.length >= 3 ? args[2] : null;
       }
 
-      const path = filePath.startsWith('/') ? filePath : `${shell.cwd}/${filePath}`;
-      const kernel = await kernelClient.getKernel();
-      const content = await kernel.readFile(path);
-      const lines = content.split('\n');
+      // Get input from stdin or file
+      if (ctx.hasStdin()) {
+        lines = ctx.getStdinLines();
+      } else if (filePath) {
+        const path = filePath.startsWith('/') ? filePath : `${shell.cwd}/${filePath}`;
+        const kernel = await kernelClient.getKernel();
+        const content = await kernel.readFile(path);
+        lines = content.split('\n');
+      } else {
+        ctx.writeln('\x1b[31mhead: missing file operand\x1b[0m');
+        return;
+      }
 
-      lines.slice(0, numLines).forEach(line => shell.term.writeln(line));
+      lines.slice(0, numLines).forEach(line => ctx.writeln(line));
     } catch (error) {
       showError(shell.term, 'head', error.message);
     }
@@ -677,28 +819,40 @@ export function registerFilesystemCommands(shell, editor = null) {
   });
 
   // Tail - show last N lines of file
-  shell.registerCommand('tail', async (args, shell) => {
-    if (args.length === 0) {
-      shell.term.writeln('\x1b[31mtail: missing file operand\x1b[0m');
+  shell.registerCommand('tail', async (args, shell, context) => {
+    const { createTerminalContext } = await import('../utils/command-context.js');
+    const ctx = context || createTerminalContext(shell.term);
+
+    if (args.length === 0 && !ctx.hasStdin()) {
+      ctx.writeln('\x1b[31mtail: missing file operand\x1b[0m');
       return;
     }
 
     try {
       let numLines = 10;
       let filePath = args[0];
+      let lines = [];
 
       // Check for -n flag
-      if (args[0] === '-n' && args.length >= 3) {
+      if (args[0] === '-n' && args.length >= 2) {
         numLines = parseInt(args[1], 10);
-        filePath = args[2];
+        filePath = args.length >= 3 ? args[2] : null;
       }
 
-      const path = filePath.startsWith('/') ? filePath : `${shell.cwd}/${filePath}`;
-      const kernel = await kernelClient.getKernel();
-      const content = await kernel.readFile(path);
-      const lines = content.split('\n');
+      // Get input from stdin or file
+      if (ctx.hasStdin()) {
+        lines = ctx.getStdinLines();
+      } else if (filePath) {
+        const path = filePath.startsWith('/') ? filePath : `${shell.cwd}/${filePath}`;
+        const kernel = await kernelClient.getKernel();
+        const content = await kernel.readFile(path);
+        lines = content.split('\n');
+      } else {
+        ctx.writeln('\x1b[31mtail: missing file operand\x1b[0m');
+        return;
+      }
 
-      lines.slice(-numLines).forEach(line => shell.term.writeln(line));
+      lines.slice(-numLines).forEach(line => ctx.writeln(line));
     } catch (error) {
       showError(shell.term, 'tail', error.message);
     }
@@ -776,22 +930,25 @@ export function registerFilesystemCommands(shell, editor = null) {
   });
 
   // Stat - show file metadata
-  shell.registerCommand('stat', async (args, shell) => {
+  shell.registerCommand('stat', async (args, shell, context) => {
+    const { createTerminalContext } = await import('../utils/command-context.js');
+    const ctx = context || createTerminalContext(shell.term);
+
     if (args.length === 0) {
-      shell.term.writeln('\x1b[31mstat: missing file operand\x1b[0m');
+      ctx.writeln('\x1b[31mstat: missing file operand\x1b[0m');
       return;
     }
 
     try {
-      const path = args[0].startsWith('/') ? args[0] : `${shell.cwd}/${args[0]}`;
+      const filePath = args[0].startsWith('/') ? args[0] : `${shell.cwd}/${args[0]}`;
       const kernel = await kernelClient.getKernel();
-      const stat = await kernel.stat(path);
+      const stat = await kernel.stat(filePath);
 
-      shell.term.writeln(`  File: ${stat.path}`);
-      shell.term.writeln(`  Type: ${stat.type}`);
-      shell.term.writeln(`  Size: ${stat.size || 0} bytes`);
-      shell.term.writeln(`  Created: ${new Date(stat.created).toISOString()}`);
-      shell.term.writeln(`  Modified: ${new Date(stat.modified).toISOString()}`);
+      ctx.writeln(`  File: ${filePath}`);
+      ctx.writeln(`  Type: ${stat.type}`);
+      ctx.writeln(`  Size: ${stat.size || 0} bytes`);
+      ctx.writeln(`  Created: ${new Date(stat.created).toISOString()}`);
+      ctx.writeln(`  Modified: ${new Date(stat.modified).toISOString()}`);
     } catch (error) {
       showError(shell.term, 'stat', error.message);
     }
@@ -1042,7 +1199,7 @@ export function registerFilesystemCommands(shell, editor = null) {
         const content = await kernel.readFile(filePath);
         lines = content.split('\n');
       } else {
-        showError(shell.term, 'sort', 'no input provided');
+        showError(shell.term, 'uniq', 'no input provided');
         return;
       }
 

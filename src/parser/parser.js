@@ -3,7 +3,8 @@
  *
  * Grammar (simplified):
  *   Input      → Sequence EOF
- *   Sequence   → Compound (';' Compound)*
+ *   Sequence   → Logical (';' Logical)*
+ *   Logical    → Compound (('&&' | '||') Compound)*
  *   Compound   → Pipeline Redirects
  *   Pipeline   → Command ('|' Command)*
  *   Command    → WORD Args
@@ -17,6 +18,8 @@ import {
   PipelineNode,
   CompoundNode,
   SequenceNode,
+  LogicalAndNode,
+  LogicalOrNode,
   AssignmentNode,
   VariableNode,
   EmptyNode
@@ -103,12 +106,12 @@ export class Parser {
 
   /**
    * Parse sequence of commands separated by semicolons or newlines
-   * Sequence → Compound (';' | '\n' Compound)*
+   * Sequence → Logical (';' | '\n' Logical)*
    */
   parseSequence() {
     const commands = [];
 
-    commands.push(this.parseCompound());
+    commands.push(this.parseLogical());
 
     // Parse additional commands after semicolons or newlines
     while (true) {
@@ -131,7 +134,7 @@ export class Parser {
         break;
       }
 
-      commands.push(this.parseCompound());
+      commands.push(this.parseLogical());
     }
 
     // If only one command, return it directly (no need for SequenceNode)
@@ -140,6 +143,34 @@ export class Parser {
     }
 
     return new SequenceNode(commands);
+  }
+
+  /**
+   * Parse logical operators (&& and ||)
+   * Logical → Compound (('&&' | '||') Compound)*
+   *
+   * Note: && and || are left-associative with equal precedence
+   * Example: a && b || c && d is parsed as ((a && b) || c) && d
+   */
+  parseLogical() {
+    let left = this.parseCompound();
+
+    // Parse chain of && and || operators
+    while (this.check(TokenType.AND_AND) || this.check(TokenType.OR_OR)) {
+      const isAnd = this.check(TokenType.AND_AND);
+      this.advance(); // Consume && or ||
+      this.skipNewlines();
+
+      const right = this.parseCompound();
+
+      if (isAnd) {
+        left = new LogicalAndNode(left, right);
+      } else {
+        left = new LogicalOrNode(left, right);
+      }
+    }
+
+    return left;
   }
 
   /**
@@ -244,6 +275,8 @@ export class Parser {
       // Stop at operators, semicolons, newlines, or EOF
       if (!token ||
           token.type === TokenType.PIPE ||
+          token.type === TokenType.AND_AND ||
+          token.type === TokenType.OR_OR ||
           token.type === TokenType.SEMICOLON ||
           token.type === TokenType.REDIRECT_IN ||
           token.type === TokenType.REDIRECT_OUT ||

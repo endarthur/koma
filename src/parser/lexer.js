@@ -16,6 +16,8 @@ export const TokenType = {
 
   // Operators
   PIPE: 'PIPE',                    // |
+  AND_AND: 'AND_AND',              // &&
+  OR_OR: 'OR_OR',                  // ||
   SEMICOLON: 'SEMICOLON',          // ;
   REDIRECT_IN: 'REDIRECT_IN',      // <
   REDIRECT_OUT: 'REDIRECT_OUT',    // >
@@ -112,8 +114,9 @@ export class Lexer {
     // Word characters: letters, digits, underscore, dash, dot, slash, backslash, etc.
     // Basically anything that's not a special shell character
     // Note: = is excluded so we can detect assignments (NAME=value)
+    // Note: ! is excluded so we can handle != for test command
     // Note: \ is INCLUDED to allow escape sequences in unquoted words (like echo hello\nworld)
-    return !/[\s|;<>&$="']/.test(char);
+    return !/[\s|;<>&$="'!]/.test(char);
   }
 
   /**
@@ -316,16 +319,54 @@ export class Lexer {
         continue;
       }
 
-      // Pipe
+      // Pipe or ||
       if (char === '|') {
         this.advance();
-        this.tokens.push(new Token(
-          TokenType.PIPE,
-          '|',
-          startPos,
-          startLine,
-          startCol
-        ));
+        // Check for ||
+        if (this.peek() === '|') {
+          this.advance();
+          this.tokens.push(new Token(
+            TokenType.OR_OR,
+            '||',
+            startPos,
+            startLine,
+            startCol
+          ));
+        } else {
+          this.tokens.push(new Token(
+            TokenType.PIPE,
+            '|',
+            startPos,
+            startLine,
+            startCol
+          ));
+        }
+        continue;
+      }
+
+      // &&
+      if (char === '&') {
+        this.advance();
+        // Check for &&
+        if (this.peek() === '&') {
+          this.advance();
+          this.tokens.push(new Token(
+            TokenType.AND_AND,
+            '&&',
+            startPos,
+            startLine,
+            startCol
+          ));
+        } else {
+          // Single & is background operator (not implemented yet), treat as word
+          this.tokens.push(new Token(
+            TokenType.WORD,
+            '&',
+            startPos,
+            startLine,
+            startCol
+          ));
+        }
         continue;
       }
 
@@ -425,6 +466,45 @@ export class Lexer {
       // Word
       if (this.isWordChar(char)) {
         this.tokens.push(this.tokenizeWord());
+        continue;
+      }
+
+      // Handle ! and != for test command
+      if (char === '!') {
+        this.advance();
+        // Check for !=
+        if (this.peek() === '=') {
+          this.advance();
+          this.tokens.push(new Token(
+            TokenType.WORD,
+            '!=',
+            startPos,
+            startLine,
+            startCol
+          ));
+        } else {
+          this.tokens.push(new Token(
+            TokenType.WORD,
+            '!',
+            startPos,
+            startLine,
+            startCol
+          ));
+        }
+        continue;
+      }
+
+      // Standalone = for test command string comparisons
+      // Note: = as part of assignment (VAR=value) is handled earlier by isWordChar
+      if (char === '=') {
+        this.advance();
+        this.tokens.push(new Token(
+          TokenType.WORD,
+          '=',
+          startPos,
+          startLine,
+          startCol
+        ));
         continue;
       }
 

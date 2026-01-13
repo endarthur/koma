@@ -87,6 +87,45 @@ describe('Lexer', () => {
       expect(tokens[1].value).to.equal('file.txt');
       expect(tokens[2].type).to.equal(TokenType.PIPE);
     });
+
+    it('should tokenize && operator', () => {
+      const tokens = tokenize('mkdir dir && cd dir');
+
+      expect(tokens).to.have.lengthOf(6); // mkdir, dir, &&, cd, dir, EOF
+      expect(tokens[2].type).to.equal(TokenType.AND_AND);
+      expect(tokens[2].value).to.equal('&&');
+    });
+
+    it('should tokenize || operator', () => {
+      const tokens = tokenize('test -f file || echo "not found"');
+
+      expect(tokens).to.have.lengthOf(7); // test, -f, file, ||, echo, "not found", EOF
+      expect(tokens[3].type).to.equal(TokenType.OR_OR);
+      expect(tokens[3].value).to.equal('||');
+    });
+
+    it('should distinguish | from ||', () => {
+      const tokens = tokenize('cat | grep || echo');
+
+      expect(tokens[1].type).to.equal(TokenType.PIPE);
+      expect(tokens[1].value).to.equal('|');
+      expect(tokens[3].type).to.equal(TokenType.OR_OR);
+      expect(tokens[3].value).to.equal('||');
+    });
+
+    it('should tokenize && and || without spaces', () => {
+      const tokens = tokenize('cmd1&&cmd2||cmd3');
+
+      expect(tokens[1].type).to.equal(TokenType.AND_AND);
+      expect(tokens[3].type).to.equal(TokenType.OR_OR);
+    });
+
+    it('should tokenize single & as word (background not implemented)', () => {
+      const tokens = tokenize('cmd &');
+
+      expect(tokens[1].type).to.equal(TokenType.WORD);
+      expect(tokens[1].value).to.equal('&');
+    });
   });
 
   describe('Quoted Strings', () => {

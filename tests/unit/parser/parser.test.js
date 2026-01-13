@@ -10,6 +10,8 @@ import {
   PipelineNode,
   CompoundNode,
   SequenceNode,
+  LogicalAndNode,
+  LogicalOrNode,
   AssignmentNode,
   VariableNode,
   EmptyNode
@@ -178,6 +180,112 @@ describe('Parser', () => {
       expect(ast).to.be.instanceOf(SequenceNode);
       expect(ast.commands[0]).to.be.instanceOf(PipelineNode);
       expect(ast.commands[1]).to.be.instanceOf(CommandNode);
+    });
+  });
+
+  describe('Logical Operators', () => {
+    it('should parse && (logical AND)', () => {
+      const tokens = tokenize('mkdir dir && cd dir');
+      const ast = parse(tokens);
+
+      expect(ast).to.be.instanceOf(LogicalAndNode);
+      expect(ast.left).to.be.instanceOf(CommandNode);
+      expect(ast.left.command).to.equal('mkdir');
+      expect(ast.right).to.be.instanceOf(CommandNode);
+      expect(ast.right.command).to.equal('cd');
+    });
+
+    it('should parse || (logical OR)', () => {
+      const tokens = tokenize('test -f file || echo "not found"');
+      const ast = parse(tokens);
+
+      expect(ast).to.be.instanceOf(LogicalOrNode);
+      expect(ast.left).to.be.instanceOf(CommandNode);
+      expect(ast.left.command).to.equal('test');
+      expect(ast.right).to.be.instanceOf(CommandNode);
+      expect(ast.right.command).to.equal('echo');
+    });
+
+    it('should parse chained && operators (left-associative)', () => {
+      const tokens = tokenize('cmd1 && cmd2 && cmd3');
+      const ast = parse(tokens);
+
+      // Should be ((cmd1 && cmd2) && cmd3)
+      expect(ast).to.be.instanceOf(LogicalAndNode);
+      expect(ast.left).to.be.instanceOf(LogicalAndNode);
+      expect(ast.left.left.command).to.equal('cmd1');
+      expect(ast.left.right.command).to.equal('cmd2');
+      expect(ast.right.command).to.equal('cmd3');
+    });
+
+    it('should parse chained || operators (left-associative)', () => {
+      const tokens = tokenize('cmd1 || cmd2 || cmd3');
+      const ast = parse(tokens);
+
+      // Should be ((cmd1 || cmd2) || cmd3)
+      expect(ast).to.be.instanceOf(LogicalOrNode);
+      expect(ast.left).to.be.instanceOf(LogicalOrNode);
+      expect(ast.left.left.command).to.equal('cmd1');
+      expect(ast.left.right.command).to.equal('cmd2');
+      expect(ast.right.command).to.equal('cmd3');
+    });
+
+    it('should parse mixed && and || (left-associative)', () => {
+      const tokens = tokenize('cmd1 && cmd2 || cmd3');
+      const ast = parse(tokens);
+
+      // Should be ((cmd1 && cmd2) || cmd3)
+      expect(ast).to.be.instanceOf(LogicalOrNode);
+      expect(ast.left).to.be.instanceOf(LogicalAndNode);
+      expect(ast.left.left.command).to.equal('cmd1');
+      expect(ast.left.right.command).to.equal('cmd2');
+      expect(ast.right.command).to.equal('cmd3');
+    });
+
+    it('should parse && with pipelines', () => {
+      const tokens = tokenize('cat file | grep foo && echo success');
+      const ast = parse(tokens);
+
+      expect(ast).to.be.instanceOf(LogicalAndNode);
+      expect(ast.left).to.be.instanceOf(PipelineNode);
+      expect(ast.right).to.be.instanceOf(CommandNode);
+    });
+
+    it('should parse || with redirects', () => {
+      const tokens = tokenize('cat file.txt > output.txt || echo error');
+      const ast = parse(tokens);
+
+      expect(ast).to.be.instanceOf(LogicalOrNode);
+      expect(ast.left).to.be.instanceOf(CompoundNode);
+      expect(ast.left.redirects.output).to.equal('output.txt');
+    });
+
+    it('should parse logical operators in sequence', () => {
+      const tokens = tokenize('cmd1 && cmd2 ; cmd3 || cmd4');
+      const ast = parse(tokens);
+
+      expect(ast).to.be.instanceOf(SequenceNode);
+      expect(ast.commands).to.have.lengthOf(2);
+      expect(ast.commands[0]).to.be.instanceOf(LogicalAndNode);
+      expect(ast.commands[1]).to.be.instanceOf(LogicalOrNode);
+    });
+
+    it('should have toString for LogicalAndNode', () => {
+      const tokens = tokenize('cmd1 && cmd2');
+      const ast = parse(tokens);
+
+      const str = ast.toString();
+      expect(str).to.include('LogicalAnd');
+      expect(str).to.include('&&');
+    });
+
+    it('should have toString for LogicalOrNode', () => {
+      const tokens = tokenize('cmd1 || cmd2');
+      const ast = parse(tokens);
+
+      const str = ast.toString();
+      expect(str).to.include('LogicalOr');
+      expect(str).to.include('||');
     });
   });
 
