@@ -138,9 +138,14 @@ export class Shale {
       const currentTab = this.tabs.get(this.activeTabId);
       currentTab.element.classList.remove('active');
 
-      // Detach terminal
+      // Detach terminal - wrap in try-catch to prevent errors from breaking tab switching
       if (currentTab.inputHandler) {
-        currentTab.inputHandler.dispose();
+        try {
+          currentTab.inputHandler.dispose();
+        } catch (error) {
+          console.warn('[Shale] Error disposing input handler:', error);
+        }
+        currentTab.inputHandler = null;
       }
     }
 
@@ -156,7 +161,11 @@ export class Shale {
 
     // Dispose existing input handler if any, then set up new one
     if (tab.inputHandler) {
-      tab.inputHandler.dispose();
+      try {
+        tab.inputHandler.dispose();
+      } catch (error) {
+        console.warn('[Shale] Error disposing existing input handler:', error);
+      }
     }
     tab.inputHandler = this.setupInputHandler(tab);
 
@@ -185,11 +194,19 @@ export class Shale {
     // Remove DOM element
     tab.element.remove();
 
-    // Dispose terminal
+    // Dispose terminal - wrap in try-catch to ensure cleanup continues
     if (tab.inputHandler) {
-      tab.inputHandler.dispose();
+      try {
+        tab.inputHandler.dispose();
+      } catch (error) {
+        console.warn('[Shale] Error disposing input handler on close:', error);
+      }
     }
-    tab.terminal.dispose();
+    try {
+      tab.terminal.dispose();
+    } catch (error) {
+      console.warn('[Shale] Error disposing terminal on close:', error);
+    }
 
     // Remove from map
     this.tabs.delete(tabId);
@@ -770,7 +787,27 @@ export class Shale {
       nextTabId: this.nextTabId,
     };
 
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    } catch (error) {
+      // Handle quota exceeded or other localStorage errors
+      if (error.name === 'QuotaExceededError' || error.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
+        console.warn('[Shale] localStorage quota exceeded, tab state not saved');
+        // Try to save minimal data (just tab IDs and active tab)
+        try {
+          const minimalData = {
+            tabs: tabsData.map(t => ({ id: t.id, name: t.name })),
+            activeTabId: this.activeTabId,
+            nextTabId: this.nextTabId,
+          };
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(minimalData));
+        } catch (retryError) {
+          console.error('[Shale] Failed to save even minimal tab state:', retryError);
+        }
+      } else {
+        console.error('[Shale] Failed to save tabs:', error);
+      }
+    }
   }
 
   /**

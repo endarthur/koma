@@ -29,8 +29,8 @@ The shell parser and execution environment. Evolving from Thompson Shell (1971) 
 - Sequence (separated with ;)
 - Redirect (>, >>, <)
 - Assignment (VAR=value)
-- LogicalAnd (&&) - *defined, not implemented*
-- LogicalOr (||) - *defined, not implemented*
+- LogicalAnd (&&) - *implemented with short-circuit evaluation*
+- LogicalOr (||) - *implemented with short-circuit evaluation*
 
 **Files**: `src/parser/lexer.js`, `src/parser/parser.js`, `src/parser/executor.js`, `src/parser/ast-nodes.js`
 
@@ -171,29 +171,30 @@ find /usr -name "*.md" | grep man
 - `$#` - Argument count
 - `shift` command
 
-### 🧪 Prototype
-
 ### Logical Operators
-**Tags**: `#shell` `#prototype` `#high` `#control-flow`
-**Status**: AST nodes defined but executor implementation incomplete
-**Phase**: 8 (needed for scripting)
+**Tags**: `#shell` `#production` `#high` `#control-flow`
+**Status**: Complete with short-circuit evaluation
+**Phase**: 6.7
 **Dependencies**: Exit codes (✅ complete)
-**Blocks**: Conditional execution patterns
+**Blocks**: None (unblocks conditional execution patterns)
 
-**Planned Features**:
-- **AND**: `cmd1 && cmd2` - Run cmd2 only if cmd1 succeeds
-- **OR**: `cmd1 || cmd2` - Run cmd2 only if cmd1 fails
-- Short-circuit evaluation
+**Features**:
+- **AND**: `cmd1 && cmd2` - Run cmd2 only if cmd1 succeeds (exit code 0)
+- **OR**: `cmd1 || cmd2` - Run cmd2 only if cmd1 fails (exit code != 0)
+- Short-circuit evaluation (right side not evaluated if result determined)
+- Proper exit code propagation
 
 **Examples**:
 ```bash
 test -f file.txt && cat file.txt
 mkdir dir || echo "Failed to create directory"
+true && echo "success"
+false || echo "fallback"
 ```
 
-**Current Status**: LogicalAnd and LogicalOr AST nodes exist in parser, but executor doesn't handle them. Will be implemented alongside conditionals in Phase 8.
+**Files**: `src/parser/lexer.js`, `src/parser/parser.js`, `src/parser/ast-nodes.js`, `src/parser/executor.js`
 
-**Files**: `src/parser/ast-nodes.js` (nodes defined), `src/parser/executor.js` (needs implementation)
+### 🧪 Prototype
 
 ### Advanced Parser Features
 **Tags**: `#shell` `#prototype` `#medium` `#parser`
@@ -245,7 +246,7 @@ mkdir dir || echo "Failed to create directory"
 **Bourne Shell (1977)**: 🔧 In Progress
 - Variables ✅
 - Exit codes ✅
-- Logical operators 🧪 (planned for Phase 8)
+- Logical operators ✅ (&&, || with short-circuit)
 - Conditionals 🔧 (working on it)
 - Loops 🔧
 - Functions 🔧
@@ -335,6 +336,6 @@ Kernel API
 
 ---
 
-**Last Updated**: 2025-11-16
-**Maturity**: Working (60% to POSIX sh)
+**Last Updated**: 2026-01-13
+**Maturity**: Working (65% to POSIX sh)
 **Priority**: Critical

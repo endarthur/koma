@@ -548,29 +548,50 @@ class VFS {
           return;
         }
 
-        // Delete old entry
-        const deleteRequest = store.delete(oldPath);
+        // Calculate new parent path
+        const parts = newPath.split('/').filter(p => p);
+        const name = parts[parts.length - 1];
+        const parent = parts.length === 1 ? '/' : '/' + parts.slice(0, -1).join('/');
 
-        deleteRequest.onsuccess = () => {
-          // Create new entry with updated path and name
-          const parts = newPath.split('/').filter(p => p);
-          const name = parts[parts.length - 1];
-          const parent = parts.length === 1 ? '/' : '/' + parts.slice(0, -1).join('/');
+        // Check if parent directory exists (unless moving to root)
+        const checkParentAndMove = () => {
+          // Delete old entry
+          const deleteRequest = store.delete(oldPath);
 
-          const newEntry = {
-            ...entry,
-            path: newPath,
-            name,
-            parent,
-            modified: Date.now(),
+          deleteRequest.onsuccess = () => {
+            const newEntry = {
+              ...entry,
+              path: newPath,
+              name,
+              parent,
+              modified: Date.now(),
+            };
+
+            const putRequest = store.put(newEntry);
+            putRequest.onsuccess = () => resolve();
+            putRequest.onerror = () => reject(putRequest.error);
           };
 
-          const putRequest = store.put(newEntry);
-          putRequest.onsuccess = () => resolve();
-          putRequest.onerror = () => reject(putRequest.error);
+          deleteRequest.onerror = () => reject(deleteRequest.error);
         };
 
-        deleteRequest.onerror = () => reject(deleteRequest.error);
+        if (parent !== '/') {
+          const parentCheck = store.get(parent);
+          parentCheck.onsuccess = () => {
+            if (!parentCheck.result) {
+              reject(createVFSError('ENOENT', 'no such file or directory', parent));
+              return;
+            }
+            if (parentCheck.result.type !== 'directory') {
+              reject(createVFSError('ENOTDIR', 'not a directory', parent));
+              return;
+            }
+            checkParentAndMove();
+          };
+          parentCheck.onerror = () => reject(parentCheck.error);
+        } else {
+          checkParentAndMove();
+        }
       };
 
       getRequest.onerror = () => reject(getRequest.error);
@@ -599,25 +620,47 @@ class VFS {
           return;
         }
 
-        // Create new entry at destination
+        // Calculate destination parent path
         const parts = destPath.split('/').filter(p => p);
         const name = parts[parts.length - 1];
         const parent = parts.length === 1 ? '/' : '/' + parts.slice(0, -1).join('/');
 
-        const newEntry = {
-          path: destPath,
-          name,
-          parent,
-          type: 'file',
-          content: entry.content,
-          size: entry.size,
-          created: Date.now(),
-          modified: Date.now(),
+        // Helper to create the copy
+        const createCopy = () => {
+          const newEntry = {
+            path: destPath,
+            name,
+            parent,
+            type: 'file',
+            content: entry.content,
+            size: entry.size,
+            created: Date.now(),
+            modified: Date.now(),
+          };
+
+          const putRequest = store.put(newEntry);
+          putRequest.onsuccess = () => resolve();
+          putRequest.onerror = () => reject(putRequest.error);
         };
 
-        const putRequest = store.put(newEntry);
-        putRequest.onsuccess = () => resolve();
-        putRequest.onerror = () => reject(putRequest.error);
+        // Check if parent directory exists (unless copying to root)
+        if (parent !== '/') {
+          const parentCheck = store.get(parent);
+          parentCheck.onsuccess = () => {
+            if (!parentCheck.result) {
+              reject(createVFSError('ENOENT', 'no such file or directory', parent));
+              return;
+            }
+            if (parentCheck.result.type !== 'directory') {
+              reject(createVFSError('ENOTDIR', 'not a directory', parent));
+              return;
+            }
+            createCopy();
+          };
+          parentCheck.onerror = () => reject(parentCheck.error);
+        } else {
+          createCopy();
+        }
       };
 
       getRequest.onerror = () => reject(getRequest.error);
@@ -1064,8 +1107,24 @@ class ProcessManager {
  * @param {number} min - Minimum value for field
  * @param {number} max - Maximum value for field
  * @returns {Array<number>} Array of matching values
+ * @throws {Error} If field contains invalid values
  */
 function parseCronField(field, min, max) {
+  /**
+   * Validate a parsed integer value
+   * @param {number} value - Parsed value to validate
+   * @param {string} context - Context for error message
+   * @throws {Error} If value is invalid
+   */
+  const validateValue = (value, context) => {
+    if (isNaN(value)) {
+      throw new Error(`Invalid ${context}: not a number`);
+    }
+    if (value < min || value > max) {
+      throw new Error(`Invalid ${context}: ${value} is out of range (${min}-${max})`);
+    }
+  };
+
   // Wildcard: all values
   if (field === '*') {
     return Array.from({ length: max - min + 1 }, (_, i) => min + i);
@@ -1074,6 +1133,9 @@ function parseCronField(field, min, max) {
   // Step values: */N
   if (field.startsWith('*/')) {
     const step = parseInt(field.slice(2), 10);
+    if (isNaN(step) || step <= 0) {
+      throw new Error(`Invalid step value: ${field.slice(2)} (must be a positive number)`);
+    }
     const values = [];
     for (let i = min; i <= max; i += step) {
       values.push(i);
@@ -1083,17 +1145,34 @@ function parseCronField(field, min, max) {
 
   // Range: N-M
   if (field.includes('-')) {
-    const [start, end] = field.split('-').map(n => parseInt(n, 10));
+    const parts = field.split('-');
+    if (parts.length !== 2) {
+      throw new Error(`Invalid range format: ${field}`);
+    }
+    const start = parseInt(parts[0], 10);
+    const end = parseInt(parts[1], 10);
+    validateValue(start, 'range start');
+    validateValue(end, 'range end');
+    if (start > end) {
+      throw new Error(`Invalid range: start (${start}) is greater than end (${end})`);
+    }
     return Array.from({ length: end - start + 1 }, (_, i) => start + i);
   }
 
   // List: N,M,P
   if (field.includes(',')) {
-    return field.split(',').map(n => parseInt(n.trim(), 10));
+    const values = field.split(',').map(n => {
+      const value = parseInt(n.trim(), 10);
+      validateValue(value, 'list value');
+      return value;
+    });
+    return values;
   }
 
   // Single value
-  return [parseInt(field, 10)];
+  const value = parseInt(field, 10);
+  validateValue(value, 'value');
+  return [value];
 }
 
 /**

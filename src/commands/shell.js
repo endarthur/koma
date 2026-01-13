@@ -2165,6 +2165,124 @@ export function registerShellCommands(shell, tabManager = null) {
     category: 'shell'
   });
 
+  // ============================================
+  // Scripting Utility Commands
+  // ============================================
+
+  // true - always returns success (exit code 0)
+  shell.registerCommand('true', (args, shell, context) => {
+    // Simply return 0 (success)
+    return 0;
+  }, {
+    description: 'Return success exit code',
+    category: 'shell'
+  });
+
+  // false - always returns failure (exit code 1)
+  shell.registerCommand('false', (args, shell, context) => {
+    // Simply return 1 (failure)
+    return 1;
+  }, {
+    description: 'Return failure exit code',
+    category: 'shell'
+  });
+
+  // sleep - pause execution for specified seconds
+  shell.registerCommand('sleep', async (args, shell, context) => {
+    const { createTerminalContext } = await import('../utils/command-context.js');
+    const ctx = context || createTerminalContext(shell.term);
+
+    const schema = {
+      description: 'Pause execution for a specified number of seconds',
+      positional: { description: '<seconds>' },
+      examples: [
+        { command: 'sleep 1', description: 'Sleep for 1 second' },
+        { command: 'sleep 5', description: 'Sleep for 5 seconds' },
+        { command: 'sleep 0.5', description: 'Sleep for half a second' }
+      ]
+    };
+
+    if (argparse.showHelp('sleep', args, schema, shell.term)) return 0;
+
+    const parsed = argparse.parse(args, schema);
+
+    if (parsed.positional.length === 0) {
+      ctx.writeln('\x1b[31msleep: missing operand\x1b[0m');
+      return 1;
+    }
+
+    const seconds = parseFloat(parsed.positional[0]);
+    if (isNaN(seconds) || seconds < 0) {
+      ctx.writeln(`\x1b[31msleep: invalid time interval '${parsed.positional[0]}'\x1b[0m`);
+      return 1;
+    }
+
+    // Sleep for the specified duration
+    await new Promise(resolve => setTimeout(resolve, seconds * 1000));
+    return 0;
+  }, {
+    description: 'Pause for specified seconds',
+    category: 'shell'
+  });
+
+  // read - read a line of input into a variable
+  shell.registerCommand('read', async (args, shell, context) => {
+    const { createTerminalContext } = await import('../utils/command-context.js');
+    const ctx = context || createTerminalContext(shell.term);
+
+    const schema = {
+      description: 'Read a line of input and store it in a variable',
+      options: [
+        { name: 'p', alias: 'prompt', type: 'string', description: 'Display prompt before reading' }
+      ],
+      positional: { description: '<variable>' },
+      examples: [
+        { command: 'read NAME', description: 'Read input into $NAME' },
+        { command: 'read -p "Enter name: " NAME', description: 'Display prompt and read' }
+      ]
+    };
+
+    if (argparse.showHelp('read', args, schema, shell.term)) return 0;
+
+    const parsed = argparse.parse(args, schema);
+
+    if (parsed.positional.length === 0) {
+      ctx.writeln('\x1b[31mread: missing variable name\x1b[0m');
+      return 1;
+    }
+
+    const varName = parsed.positional[0];
+
+    // Validate variable name
+    if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(varName)) {
+      ctx.writeln(`\x1b[31mread: '${varName}': not a valid identifier\x1b[0m`);
+      return 1;
+    }
+
+    // Get prompt string if provided
+    const prompt = parsed.options.p || parsed.options.prompt || '';
+
+    // Read input from user
+    try {
+      const input = await ctx.readLine(prompt);
+
+      // Ctrl+C returns null
+      if (input === null) {
+        return 130; // Interrupted
+      }
+
+      // Store in shell environment
+      shell.env[varName] = input;
+      return 0;
+    } catch (error) {
+      ctx.writeln(`\x1b[31mread: ${error.message}\x1b[0m`);
+      return 1;
+    }
+  }, {
+    description: 'Read input into variable',
+    category: 'shell'
+  });
+
   // Register RTTY commands for amateur radio digital mode
   registerRTTYCommands(shell);
 }

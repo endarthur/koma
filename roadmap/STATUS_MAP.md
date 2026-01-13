@@ -1,7 +1,7 @@
 # KOMA Status Map
 
-**Last Updated**: 2025-11-16
-**Current Phase**: Between Phase 6.6 (Complete) and Phase 7 (Package Management)
+**Last Updated**: 2026-01-13
+**Current Phase**: Phase 6.7 (Shell Enhancements) complete, Phase 7 (Package Management) next
 
 > **Quick Start**: This is the at-a-glance view of KOMA's development status. For detailed feature information, see individual domain files in `domains/`.
 
@@ -82,15 +82,23 @@
 - Phase 8-12: 📋 Planned
 
 **Feature Count**:
-- 47 shell commands implemented
+- 51 shell commands implemented
 - 5 stdlib modules available
 - 47 man pages documented
 - 5-stage boot system
 - Full pipes & redirection support
+- Logical operators (&&, ||) with short-circuit evaluation
 
 ---
 
 ## Recent Momentum
+
+**Phase 6.7 (Shell Enhancements - January 2026)**:
+- ✅ Logical operators (&&, ||) with short-circuit evaluation
+- ✅ Recursive flags: cp -r, grep -r, grep -l
+- ✅ Scripting utilities: true, false, sleep, read
+- ✅ Test command (test/[) for conditionals
+- ✅ Comprehensive test coverage (550+ tests)
 
 **Phase 6.6 (Slate Hardening - November 2025)**:
 - ✅ Production-grade boot system with 5-stage initialization
@@ -109,7 +117,7 @@
 - ✅ Exit code infrastructure ($? support)
 - ✅ Variable assignment and expansion
 - ✅ Schist Lisp interpreter
-- 🧪 Logical operators (&&, ||) - AST nodes defined, executor pending
+- ✅ Logical operators (&&, ||) with short-circuit evaluation
 
 **Phase 5.7 (Backup & Restore - November 2025)**:
 - ✅ .magma archive format
